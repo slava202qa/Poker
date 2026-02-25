@@ -1,0 +1,54 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-poker-dark text-white font-sans antialiased;
+    background-image:
+      url('/noise.png'),
+      linear-gradient(135deg, #0a0e17 0%, #0d1220 50%, #0a0e17 100%);
+    background-attachment: fixed;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  ::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #1e2a3a;
+    border-radius: 2px;
+  }
+}
+
+@layer components {
+  .btn-gold {
+    @apply bg-gradient-to-r from-poker-gold to-poker-gold-light text-poker-darker
+           font-bold py-3 px-6 rounded-xl shadow-gold
+           hover:shadow-lg transition-all duration-300
+           active:scale-95;
+  }
+
+  .btn-secondary {
+    @apply bg-poker-card border border-poker-border text-white
+           font-medium py-3 px-6 rounded-xl
+           hover:border-poker-gold/50 transition-all duration-300
+           active:scale-95;
+  }
+
+  .card-surface {
+    @apply bg-poker-card/80 backdrop-blur-sm border border-poker-border
+           rounded-2xl shadow-card;
+  }
+
+  .chip-badge {
+    @apply inline-flex items-center gap-1 bg-poker-gold/20 text-poker-gold
+           px-3 py-1 rounded-full text-sm font-semibold;
+  }
+}
