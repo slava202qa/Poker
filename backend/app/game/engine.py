@@ -51,6 +51,7 @@ class GameEngine:
         rake_percent: float = 3.0,
         turn_timeout: float = 30.0,
         broadcast: Callable[..., Awaitable] | None = None,
+        on_hand_end: Callable[..., Awaitable] | None = None,
     ):
         self.table_id = table_id
         self.small_blind = small_blind
@@ -58,6 +59,7 @@ class GameEngine:
         self.rake_percent = rake_percent
         self.turn_timeout = turn_timeout
         self.broadcast = broadcast  # async callback to push state to clients
+        self.on_hand_end = on_hand_end  # called with (table_id, rake_amount, winners)
 
         self.players: dict[int, PlayerState] = {}  # user_id -> PlayerState
         self.deck = Deck()
@@ -254,30 +256,38 @@ class GameEngine:
             return {"action": "raise", "user_id": player.user_id, "amount": actual, "raise_to": self.current_bet}
 
         elif action.action == ActionType.ALL_IN:
-            actual = player.bet(player.stack + player.current_bet)  # bet everything
-            actual = player.stack  # already 0 after bet
-            # Recalculate: bet the remaining stack
-            player_state = self.players[player.user_id]
-            # Player already went all-in via bet() method
-            self.pot_manager.add_bet(player.user_id, action.amount)
+            remaining = player.stack
+            actual = player.bet(remaining)
+            self.pot_manager.add_bet(player.user_id, actual)
 
             if player.current_bet > self.current_bet:
+                raise_by = player.current_bet - self.current_bet
+                if raise_by > self.min_raise:
+                    self.min_raise = raise_by
                 self.current_bet = player.current_bet
                 self._players_acted = {player.user_id}
 
-            return {"action": "all_in", "user_id": player.user_id, "amount": action.amount}
+            return {"action": "all_in", "user_id": player.user_id, "amount": actual}
 
         return {"error": "Invalid action"}
 
     def _is_round_over(self) -> bool:
         """Betting round ends when all active players have acted and bets are equal."""
         active = [p for p in self.players.values() if p.status == PlayerStatus.ACTIVE]
+        not_folded = [
+            p for p in self.players.values()
+            if p.status in (PlayerStatus.ACTIVE, PlayerStatus.ALL_IN)
+        ]
 
-        # Only one player left (everyone else folded/all-in)
-        if len(active) <= 1:
+        # Everyone folded except one
+        if len(not_folded) <= 1:
             return True
 
-        # All active players have acted
+        # No active players left (all are all-in or folded)
+        if len(active) == 0:
+            return True
+
+        # All active players must have acted and matched the current bet
         for p in active:
             if p.user_id not in self._players_acted:
                 return False
@@ -394,6 +404,8 @@ class GameEngine:
 
         self.hand_in_progress = False
         await self._broadcast_state()
+        if self.on_hand_end:
+            await self.on_hand_end(self.table_id, total_rake, winners)
 
     async def _end_hand(self):
         """End hand when only one player remains (everyone else folded)."""
@@ -402,15 +414,20 @@ class GameEngine:
             if p.status in (PlayerStatus.ACTIVE, PlayerStatus.ALL_IN)
         ]
 
+        rake = 0.0
+        winners = []
         if len(not_folded) == 1:
             winner = not_folded[0]
             total = self.pot_manager.total
             rake = total * (self.rake_percent / 100)
             winnings = total - rake
             winner.stack += winnings
+            winners = [{"user_id": winner.user_id, "amount": winnings}]
 
         self.hand_in_progress = False
         await self._broadcast_state()
+        if self.on_hand_end:
+            await self.on_hand_end(self.table_id, rake, winners)
 
     def _advance_dealer(self):
         seats = sorted(p.seat for p in self.players.values() if p.stack > 0)

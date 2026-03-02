@@ -12,6 +12,7 @@ from app.api import api_router
 from app.ws import manager as ws_manager
 from app.game_manager import handle_ws_message
 from app.ton.ton_listener import poll_deposits
+from app.ton.ton_withdraw import process_pending_withdrawals
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -27,10 +28,19 @@ async def lifespan(app: FastAPI):
     # Start TON deposit listener
     deposit_task = asyncio.create_task(poll_deposits())
 
+    # Start withdrawal processor (runs every 30s)
+    async def _withdrawal_loop():
+        while True:
+            await process_pending_withdrawals()
+            await asyncio.sleep(30)
+
+    withdrawal_task = asyncio.create_task(_withdrawal_loop())
+
     yield
 
     # Shutdown
     deposit_task.cancel()
+    withdrawal_task.cancel()
     await engine.dispose()
 
 

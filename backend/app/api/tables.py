@@ -7,6 +7,7 @@ from app.api.deps import get_current_user
 from app.models.user import User
 from app.models.table import PokerTable, TablePlayer, TableStatus
 from app.models.balance import Balance, Transaction, TxType
+from app import game_manager
 
 router = APIRouter(prefix="/tables", tags=["tables"])
 
@@ -182,6 +183,17 @@ async def join_table(
     table.current_players += 1
 
     await db.flush()
+
+    # Wire player into game engine
+    await game_manager.player_joined(
+        table_id=table_id,
+        user_id=user.id,
+        seat=body.seat,
+        stack=body.buy_in,
+        small_blind=float(table.small_blind),
+        big_blind=float(table.big_blind),
+    )
+
     return {"status": "joined", "seat": body.seat, "stack": body.buy_in}
 
 
@@ -200,8 +212,10 @@ async def leave_table(
     if not tp:
         raise HTTPException(status_code=400, detail="Not at this table")
 
-    # Return stack to balance
-    remaining_stack = float(tp.stack)
+    # Get actual stack from engine (may differ from DB if mid-hand)
+    engine_stack = await game_manager.player_left(table_id, user.id)
+    remaining_stack = engine_stack if engine_stack > 0 else float(tp.stack)
+
     balance = user.balance
     balance.amount = float(balance.amount) + remaining_stack
 

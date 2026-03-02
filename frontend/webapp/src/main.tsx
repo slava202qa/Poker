@@ -5,7 +5,8 @@ import { TonConnectUIProvider } from '@tonconnect/ui-react'
 import App from './App'
 import './index.css'
 
-const manifestUrl = 'https://raw.githubusercontent.com/nicua/poker/main/tonconnect-manifest.json'
+// Served from /tonconnect-manifest.json in production (public/ dir)
+const manifestUrl = `${window.location.origin}/tonconnect-manifest.json`
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
