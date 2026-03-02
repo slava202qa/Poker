@@ -23,6 +23,15 @@ class Settings(BaseSettings):
     rake_percent: float = 3.0
     debug: bool = False
 
+    # Admin — comma-separated Telegram IDs
+    admin_ids: str = ""
+
+    @property
+    def admin_id_list(self) -> list[int]:
+        if not self.admin_ids:
+            return []
+        return [int(x.strip()) for x in self.admin_ids.split(",") if x.strip()]
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"

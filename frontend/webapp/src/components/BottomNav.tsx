@@ -13,8 +13,9 @@ export function BottomNav() {
   const location = useLocation()
   const navigate = useNavigate()
 
-  // Hide nav on table room
+  // Hide nav on table room and admin
   if (location.pathname.startsWith('/table/')) return null
+  if (location.pathname.startsWith('/admin')) return null
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 bg-poker-darker/95 backdrop-blur-md border-t border-poker-border z-50">
