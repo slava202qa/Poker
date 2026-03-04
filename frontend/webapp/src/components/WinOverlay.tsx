@@ -85,7 +85,7 @@ export function WinOverlay({ show, winnerName, amount, handRank }: Props) {
                 transition={{ delay: 0.5, type: 'spring' }}
                 className="text-poker-gold-light font-extrabold text-2xl"
               >
-                +{amount.toFixed(0)} CHIP
+                +{amount.toFixed(0)} RR
               </motion.p>
             </motion.div>
           </motion.div>

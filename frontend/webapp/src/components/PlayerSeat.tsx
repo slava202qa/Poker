@@ -93,7 +93,7 @@ export function PlayerSeat({ player, isCurrentTurn, isMe, position }: Props) {
           {player.username || `Player ${player.seat + 1}`}
         </div>
         <div className="text-xs text-poker-gold font-bold">
-          {player.stack.toFixed(0)} CHIP
+          {player.stack.toFixed(0)} RR
         </div>
         {isAllIn && (
           <motion.span

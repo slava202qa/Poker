@@ -5,7 +5,7 @@ interface Props {
   size?: number
 }
 
-const CHIP_COLORS: Record<string, string> = {
+const RR_COLORS: Record<string, string> = {
   '1': 'from-gray-400 to-gray-600',
   '5': 'from-red-500 to-red-700',
   '10': 'from-blue-500 to-blue-700',
@@ -16,13 +16,13 @@ const CHIP_COLORS: Record<string, string> = {
 }
 
 function getChipColor(value: number): string {
-  if (value >= 1000) return CHIP_COLORS['1000']
-  if (value >= 500) return CHIP_COLORS['500']
-  if (value >= 100) return CHIP_COLORS['100']
-  if (value >= 25) return CHIP_COLORS['25']
-  if (value >= 10) return CHIP_COLORS['10']
-  if (value >= 5) return CHIP_COLORS['5']
-  return CHIP_COLORS['1']
+  if (value >= 1000) return RR_COLORS['1000']
+  if (value >= 500) return RR_COLORS['500']
+  if (value >= 100) return RR_COLORS['100']
+  if (value >= 25) return RR_COLORS['25']
+  if (value >= 10) return RR_COLORS['10']
+  if (value >= 5) return RR_COLORS['5']
+  return RR_COLORS['1']
 }
 
 export function PokerChip({ value, size = 40 }: Props) {

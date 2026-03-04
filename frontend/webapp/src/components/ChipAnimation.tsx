@@ -16,7 +16,7 @@ interface Props {
   onComplete?: () => void
 }
 
-const CHIP_COLORS = [
+const RR_COLORS = [
   'from-poker-gold to-yellow-600',
   'from-red-500 to-red-700',
   'from-blue-500 to-blue-700',
@@ -87,7 +87,7 @@ export function createBetChips(
     toX: toX + (Math.random() - 0.5) * 30,
     toY: toY + (Math.random() - 0.5) * 15,
     delay: i * 60,
-    color: CHIP_COLORS[i % CHIP_COLORS.length],
+    color: RR_COLORS[i % RR_COLORS.length],
   }))
 }
 
@@ -106,6 +106,6 @@ export function createWinChips(
     toX: toX + (Math.random() - 0.5) * 20,
     toY: toY + (Math.random() - 0.5) * 20,
     delay: i * 50,
-    color: CHIP_COLORS[i % CHIP_COLORS.length],
+    color: RR_COLORS[i % RR_COLORS.length],
   }))
 }

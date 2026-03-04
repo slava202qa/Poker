@@ -34,10 +34,10 @@ export default function Home() {
         className="text-center mb-8"
       >
         <h1 className="text-3xl font-extrabold">
-          <span className="text-poker-gold">♠</span> Poker
-          <span className="text-poker-gold"> Platform</span>
+          <span className="text-poker-gold">♠</span> Royal
+          <span className="text-poker-gold"> Roll</span>
         </h1>
-        <p className="text-gray-500 text-sm mt-1">Texas Hold'em on TON</p>
+        <p className="text-gray-500 text-sm mt-1">Texas Hold'em — Royal Roll</p>
       </motion.div>
 
       {/* Balance card */}
@@ -108,7 +108,7 @@ export default function Home() {
         >
           <span className="text-2xl mb-2 block">💎</span>
           <span className="font-bold text-sm">Магазин</span>
-          <p className="text-gray-500 text-xs mt-1">Купить CHIP</p>
+          <p className="text-gray-500 text-xs mt-1">Купить RR</p>
         </motion.button>
 
         <motion.button
@@ -134,7 +134,7 @@ export default function Home() {
           <div>
             <p className="font-semibold text-sm">Web3 Poker</p>
             <p className="text-gray-500 text-xs mt-1">
-              Все ставки в CHIP токенах на блокчейне TON.
+              Все ставки в RR токенах на блокчейне TON.
               Подключи кошелёк и начни играть.
             </p>
           </div>

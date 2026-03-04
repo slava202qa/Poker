@@ -111,7 +111,7 @@ export default function Tournaments() {
                   onClick={() => handleRegister(t.id)}
                   className="w-full btn-gold py-2.5 text-sm"
                 >
-                  Зарегистрироваться {t.buy_in > 0 ? `(${t.buy_in + t.fee} CHIP)` : ''}
+                  Зарегистрироваться {t.buy_in > 0 ? `(${t.buy_in + t.fee} RR)` : ''}
                 </button>
               )}
             </motion.div>

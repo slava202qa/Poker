@@ -30,7 +30,7 @@ export function ChipBalance({ amount, currency = 'chip', size = 'md' }: Props) {
       </span>
       <span>{amount.toLocaleString('en-US', { minimumFractionDigits: 0 })}</span>
       <span className={`text-xs ml-0.5 ${isChip ? 'text-poker-gold/70' : 'text-emerald-400/70'}`}>
-        {isChip ? 'CHIP' : 'FUN'}
+        {isChip ? 'RR' : 'FUN'}
       </span>
     </motion.div>
   )

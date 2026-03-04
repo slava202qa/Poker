@@ -5,9 +5,9 @@ import { useStore } from '../store/useStore'
 import { useApi } from '../hooks/useApi'
 import { ChipBalance } from '../components/ChipBalance'
 
-// System wallet address where CHIP deposits are sent
+// System wallet address where RR deposits are sent
 const SYSTEM_WALLET = import.meta.env.VITE_SYSTEM_WALLET || ''
-// Jetton master contract address for CHIP token
+// Jetton master contract address for RR token
 const JETTON_MASTER = import.meta.env.VITE_JETTON_MASTER || ''
 
 /**
@@ -66,7 +66,7 @@ export default function Shop() {
 
     try {
       // Build Jetton transfer transaction for TON Connect
-      // This sends CHIP tokens from user's wallet to system wallet
+      // This sends RR tokens from user's wallet to system wallet
       const nanoAmount = BigInt(Math.floor(numAmount * 1e9))
 
       // Jetton transfer body (simplified — TON Connect handles serialization)
@@ -93,7 +93,7 @@ export default function Shop() {
       }
 
       await tonConnectUI.sendTransaction(transaction)
-      setStatus(`Транзакция отправлена! ${numAmount} CHIP будут зачислены после подтверждения.`)
+      setStatus(`Транзакция отправлена! ${numAmount} RR будут зачислены после подтверждения.`)
       setAmount('')
     } catch (e: any) {
       if (e?.message?.includes('Cancelled') || e?.message?.includes('rejected')) {
@@ -126,7 +126,7 @@ export default function Shop() {
         amount: numAmount,
         wallet_address: walletAddress,
       })
-      setStatus(`Вывод ${numAmount} CHIP → обработка. Новый баланс: ${result.new_balance}`)
+      setStatus(`Вывод ${numAmount} RR → обработка. Новый баланс: ${result.new_balance}`)
       setAmount('')
       if (user) {
         setUser({ ...user, balance: result.new_balance })
@@ -161,7 +161,7 @@ export default function Shop() {
         animate={{ x: 0, opacity: 1 }}
         className="text-2xl font-bold mb-6"
       >
-        💎 Магазин CHIP
+        💎 Кошелёк RR
       </motion.h1>
 
       {/* Balance */}
@@ -208,7 +208,7 @@ export default function Shop() {
         {tab === 'deposit' ? (
           <>
             <p className="text-sm text-gray-400 mb-4">
-              Отправьте CHIP токены на системный кошелёк для пополнения баланса.
+              Отправьте RR токены на системный кошелёк для пополнения баланса.
             </p>
 
             {status && (
@@ -241,7 +241,7 @@ export default function Shop() {
                       : 'bg-poker-darker border border-poker-border text-gray-400'
                   }`}
                 >
-                  {p.toLocaleString()} CHIP
+                  {p.toLocaleString()} RR
                 </button>
               ))}
             </div>
@@ -259,13 +259,13 @@ export default function Shop() {
               disabled={sending}
               className="w-full btn-gold py-3 disabled:opacity-50"
             >
-              {sending ? 'Отправка...' : `Пополнить ${amount ? `${amount} CHIP` : ''}`}
+              {sending ? 'Отправка...' : `Пополнить ${amount ? `${amount} RR` : ''}`}
             </button>
           </>
         ) : (
           <>
             <p className="text-sm text-gray-400 mb-4">
-              Выведите CHIP токены на ваш TON кошелёк.
+              Выведите RR токены на ваш TON кошелёк.
             </p>
 
             {status && tab === 'withdraw' && (
@@ -289,7 +289,7 @@ export default function Shop() {
               disabled={sending}
               className="w-full btn-gold py-3 disabled:opacity-50"
             >
-              {sending ? 'Обработка...' : `Вывести ${amount ? `${amount} CHIP` : ''}`}
+              {sending ? 'Обработка...' : `Вывести ${amount ? `${amount} RR` : ''}`}
             </button>
           </>
         )}

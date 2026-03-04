@@ -95,15 +95,15 @@ export default function Dashboard() {
         <div className="card-surface p-4 space-y-3">
           <div className="flex justify-between">
             <span className="text-gray-400">Всего депозитов</span>
-            <span className="text-green-400 font-bold">{stats.total_deposited.toFixed(2)} CHIP</span>
+            <span className="text-green-400 font-bold">{stats.total_deposited.toFixed(2)} RR</span>
           </div>
           <div className="flex justify-between">
             <span className="text-gray-400">Всего выводов</span>
-            <span className="text-red-400 font-bold">{stats.total_withdrawn.toFixed(2)} CHIP</span>
+            <span className="text-red-400 font-bold">{stats.total_withdrawn.toFixed(2)} RR</span>
           </div>
           <div className="border-t border-poker-border pt-3 flex justify-between">
             <span className="text-gray-400">Балансы игроков</span>
-            <span className="text-poker-gold font-bold">{stats.system_balance.toFixed(2)} CHIP</span>
+            <span className="text-poker-gold font-bold">{stats.system_balance.toFixed(2)} RR</span>
           </div>
         </div>
       </div>

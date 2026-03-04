@@ -182,7 +182,7 @@ export default function AdminTournaments() {
             </div>
             <div className="text-xs text-gray-500 flex flex-wrap gap-3">
               <span>Бай-ин: {t.buy_in}+{t.fee}</span>
-              <span>Призовой: {t.prize_pool} CHIP</span>
+              <span>Призовой: {t.prize_pool} RR</span>
               <span>Игроки: {t.current_players}/{t.max_players}</span>
               <span>Старт: {formatDate(t.starts_at)}</span>
             </div>

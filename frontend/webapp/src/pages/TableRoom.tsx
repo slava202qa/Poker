@@ -230,7 +230,7 @@ export default function TableRoom() {
                         <div className="w-4 h-4 rounded-full bg-gradient-to-br from-red-500 to-red-700 border border-white/30 absolute -top-1 -left-0.5" />
                       </div>
                       <span className="text-poker-gold font-bold text-sm">
-                        {pot.toFixed(0)} CHIP
+                        {pot.toFixed(0)} RR
                       </span>
                     </div>
                   </motion.div>

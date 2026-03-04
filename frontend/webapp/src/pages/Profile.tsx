@@ -32,9 +32,9 @@ export default function Profile() {
 
   const statItems = [
     { label: 'Игр сыграно', value: stats?.total_games ?? 0, icon: '🃏' },
-    { label: 'Выиграно', value: `${(stats?.total_won ?? 0).toFixed(0)} CHIP`, icon: '💰' },
-    { label: 'Депозиты', value: `${(stats?.total_deposited ?? 0).toFixed(0)} CHIP`, icon: '📥' },
-    { label: 'Выводы', value: `${(stats?.total_withdrawn ?? 0).toFixed(0)} CHIP`, icon: '📤' },
+    { label: 'Выиграно', value: `${(stats?.total_won ?? 0).toFixed(0)} RR`, icon: '💰' },
+    { label: 'Депозиты', value: `${(stats?.total_deposited ?? 0).toFixed(0)} RR`, icon: '📥' },
+    { label: 'Выводы', value: `${(stats?.total_withdrawn ?? 0).toFixed(0)} RR`, icon: '📤' },
   ]
 
   return (

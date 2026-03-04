@@ -49,7 +49,7 @@ export default function Tables() {
 
   const isChip = tab === 'chip'
   const balance = isChip ? (user?.balance ?? 0) : (user?.fun_balance ?? 0)
-  const currencyLabel = isChip ? 'CHIP' : 'FUN'
+  const currencyLabel = isChip ? 'RR' : 'FUN'
   const accentColor = isChip ? 'poker-gold' : 'emerald-400'
   const accentBg = isChip ? 'bg-poker-gold' : 'bg-emerald-500'
   const accentText = isChip ? 'text-poker-gold' : 'text-emerald-400'
@@ -70,7 +70,7 @@ export default function Tables() {
                 : 'bg-gray-800/50 text-gray-500 border border-gray-700/30'
             }`}
           >
-            {c === 'chip' ? '💰 CHIP (реальные)' : '🎲 FUN (бесплатно)'}
+            {c === 'chip' ? '💰 RR (реальные)' : '🎲 FUN (бесплатно)'}
           </button>
         ))}
       </div>

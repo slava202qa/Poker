@@ -151,7 +151,7 @@ export default function AdminUsers() {
                 <div className="space-y-2 text-xs">
                   <div className="flex justify-between">
                     <span className="text-gray-500">Баланс</span>
-                    <span className="text-poker-gold font-bold">{selectedUser.balance.toFixed(2)} CHIP</span>
+                    <span className="text-poker-gold font-bold">{selectedUser.balance.toFixed(2)} RR</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-500">Кошелёк</span>
