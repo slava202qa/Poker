@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   db:
     image: postgres:16-alpine
@@ -9,13 +7,21 @@ services:
       POSTGRES_DB: poker
     volumes:
       - pgdata:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U poker"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
 
   redis:
     image: redis:7-alpine
-    ports:
-      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
 
   backend:
     build:
@@ -23,10 +29,13 @@ services:
       dockerfile: docker/Dockerfile.backend
     env_file: .env
     depends_on:
-      - db
-      - redis
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     ports:
       - "8000:8000"
+    restart: unless-stopped
 
   bot:
     build:
@@ -35,6 +44,7 @@ services:
     env_file: .env
     depends_on:
       - backend
+    restart: unless-stopped
 
   frontend:
     build:
@@ -44,6 +54,7 @@ services:
       - backend
     ports:
       - "80:80"
+    restart: unless-stopped
 
 volumes:
   pgdata:
