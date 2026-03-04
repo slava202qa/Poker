@@ -37,22 +37,24 @@ def get_or_create_engine(
     table_id: int,
     small_blind: float,
     big_blind: float,
+    rake_override: float | None = None,
 ) -> GameEngine:
     """Get existing engine or create a new one for the table."""
     if table_id in _engines:
         return _engines[table_id]
 
     settings = get_settings()
+    rake = rake_override if rake_override is not None else settings.rake_percent
     engine = GameEngine(
         table_id=table_id,
         small_blind=small_blind,
         big_blind=big_blind,
-        rake_percent=settings.rake_percent,
+        rake_percent=rake,
         broadcast=_broadcast,
         on_hand_end=_on_hand_end,
     )
     _engines[table_id] = engine
-    logger.info(f"Engine created for table {table_id} ({small_blind}/{big_blind})")
+    logger.info(f"Engine created for table {table_id} ({small_blind}/{big_blind}, rake={rake}%)")
     return engine
 
 
@@ -77,9 +79,11 @@ def remove_engine(table_id: int):
 
 
 async def player_joined(table_id: int, user_id: int, seat: int, stack: float,
-                         small_blind: float, big_blind: float):
+                         small_blind: float, big_blind: float,
+                         rake_override: float | None = None):
     """Called from tables API when a player joins. Wires them into the engine."""
-    engine = get_or_create_engine(table_id, small_blind, big_blind)
+    engine = get_or_create_engine(table_id, small_blind, big_blind,
+                                   rake_override=rake_override)
     engine.add_player(user_id, seat, stack)
     logger.info(f"Player {user_id} joined table {table_id} seat {seat} stack {stack}")
 
@@ -207,12 +211,19 @@ async def _sync_stacks_to_db(table_id: int, engine: GameEngine):
     """Write engine player stacks back to DB after a hand ends.
     Removes busted players (stack=0) from both engine and DB."""
     from app.models.table import TablePlayer, PokerTable
-    from app.models.balance import Balance, Transaction, TxType
+    from app.models.balance import Balance, Transaction, TxType, CurrencyType
 
     busted_ids = []
 
     try:
         async with async_session() as session:
+            # Determine table currency
+            tbl_result = await session.execute(
+                select(PokerTable).where(PokerTable.id == table_id)
+            )
+            tbl = tbl_result.scalar_one_or_none()
+            is_fun = tbl and tbl.currency == CurrencyType.FUN
+
             for uid, player in engine.players.items():
                 result = await session.execute(
                     select(TablePlayer).where(
@@ -225,20 +236,13 @@ async def _sync_stacks_to_db(table_id: int, engine: GameEngine):
                     continue
 
                 if player.stack <= 0:
-                    # Busted — remove from table
                     busted_ids.append(uid)
                     await session.delete(tp)
                 else:
                     tp.stack = player.stack
 
-            # Update table player count
-            if busted_ids:
-                tbl_result = await session.execute(
-                    select(PokerTable).where(PokerTable.id == table_id)
-                )
-                tbl = tbl_result.scalar_one_or_none()
-                if tbl:
-                    tbl.current_players = max(0, tbl.current_players - len(busted_ids))
+            if busted_ids and tbl:
+                tbl.current_players = max(0, tbl.current_players - len(busted_ids))
 
             await session.commit()
             logger.info(f"Synced stacks for table {table_id}, busted: {busted_ids}")

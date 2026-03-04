@@ -25,6 +25,11 @@ interface TelegramWebApp {
     hide: () => void
     onClick: (cb: () => void) => void
   }
+  HapticFeedback?: {
+    impactOccurred?: (style: 'light' | 'medium' | 'heavy' | 'rigid' | 'soft') => void
+    notificationOccurred?: (type: 'error' | 'success' | 'warning') => void
+    selectionChanged?: () => void
+  }
   themeParams: {
     bg_color?: string
     text_color?: string

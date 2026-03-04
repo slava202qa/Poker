@@ -11,8 +11,17 @@ class Balance(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), unique=True, nullable=False)
     amount: Mapped[float] = mapped_column(Numeric(18, 4), default=0, nullable=False)
+    fun_amount: Mapped[float] = mapped_column(Numeric(18, 4), default=10000, nullable=False)
+    fun_last_refill: Mapped[datetime.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
     user: Mapped["User"] = relationship(back_populates="balance")
+
+
+class CurrencyType(str, enum.Enum):
+    CHIP = "chip"
+    FUN = "fun"
 
 
 class TxType(str, enum.Enum):
@@ -24,6 +33,7 @@ class TxType(str, enum.Enum):
     TOURNAMENT_ENTRY = "tournament_entry"
     TOURNAMENT_PRIZE = "tournament_prize"
     BONUS = "bonus"
+    FUN_REFILL = "fun_refill"
 
 
 class Transaction(Base):
@@ -31,6 +41,9 @@ class Transaction(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True, nullable=False)
+    currency: Mapped[CurrencyType] = mapped_column(
+        Enum(CurrencyType), default=CurrencyType.CHIP, nullable=False
+    )
     tx_type: Mapped[TxType] = mapped_column(Enum(TxType), nullable=False)
     amount: Mapped[float] = mapped_column(Numeric(18, 4), nullable=False)
     balance_after: Mapped[float] = mapped_column(Numeric(18, 4), nullable=False)

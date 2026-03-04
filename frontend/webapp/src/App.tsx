@@ -38,6 +38,7 @@ export default function App() {
             first_name: tgUser.first_name,
             ton_wallet: null,
             balance: 0,
+            fun_balance: 10000,
           })
         }
       } finally {

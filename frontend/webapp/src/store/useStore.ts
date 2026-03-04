@@ -7,6 +7,7 @@ interface User {
   first_name: string
   ton_wallet: string | null
   balance: number
+  fun_balance: number
 }
 
 interface GameState {

@@ -3,6 +3,7 @@ import enum
 from sqlalchemy import Integer, String, Numeric, DateTime, Enum, ForeignKey, Boolean, func
 from sqlalchemy.orm import Mapped, mapped_column
 from app.database import Base
+from app.models.balance import CurrencyType
 
 
 class TableStatus(str, enum.Enum):
@@ -16,6 +17,9 @@ class PokerTable(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String(64), nullable=False)
+    currency: Mapped[CurrencyType] = mapped_column(
+        Enum(CurrencyType), default=CurrencyType.CHIP, nullable=False
+    )
     max_players: Mapped[int] = mapped_column(Integer, default=9)
     small_blind: Mapped[float] = mapped_column(Numeric(18, 4), nullable=False)
     big_blind: Mapped[float] = mapped_column(Numeric(18, 4), nullable=False)

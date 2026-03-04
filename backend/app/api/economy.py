@@ -1,3 +1,4 @@
+import datetime
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import select
@@ -5,13 +6,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.api.deps import get_current_user
 from app.models.user import User
-from app.models.balance import Balance, Transaction, TxType
+from app.models.balance import Balance, Transaction, TxType, CurrencyType
 
 router = APIRouter(prefix="/economy", tags=["economy"])
+
+FUN_REFILL_AMOUNT = 10_000
+FUN_REFILL_COOLDOWN_HOURS = 4
+FUN_REFILL_THRESHOLD = 1_000  # can only refill when FUN balance below this
 
 
 class BalanceResponse(BaseModel):
     balance: float
+    fun_balance: float
     wallet: str | None
 
 
@@ -40,6 +46,7 @@ class TransactionResponse(BaseModel):
 async def get_balance(user: User = Depends(get_current_user)):
     return BalanceResponse(
         balance=float(user.balance.amount) if user.balance else 0,
+        fun_balance=float(user.balance.fun_amount) if user.balance else 0,
         wallet=user.ton_wallet,
     )
 
@@ -129,4 +136,51 @@ async def withdraw(
         "amount": body.amount,
         "to": body.wallet_address,
         "new_balance": float(balance.amount),
+    }
+
+
+@router.post("/fun/refill")
+async def refill_fun(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Refill FUN balance. Available every 4 hours when balance < 1000."""
+    balance = user.balance
+    current_fun = float(balance.fun_amount)
+
+    if current_fun >= FUN_REFILL_THRESHOLD:
+        raise HTTPException(
+            status_code=400,
+            detail=f"FUN balance must be below {FUN_REFILL_THRESHOLD} to refill"
+        )
+
+    now = datetime.datetime.now(datetime.timezone.utc)
+    if balance.fun_last_refill:
+        elapsed = (now - balance.fun_last_refill).total_seconds()
+        remaining = FUN_REFILL_COOLDOWN_HOURS * 3600 - elapsed
+        if remaining > 0:
+            mins = int(remaining // 60)
+            raise HTTPException(
+                status_code=400,
+                detail=f"Refill available in {mins} minutes"
+            )
+
+    balance.fun_amount = current_fun + FUN_REFILL_AMOUNT
+    balance.fun_last_refill = now
+
+    tx = Transaction(
+        user_id=user.id,
+        currency=CurrencyType.FUN,
+        tx_type=TxType.FUN_REFILL,
+        amount=FUN_REFILL_AMOUNT,
+        balance_after=float(balance.fun_amount),
+        reference="fun_refill",
+    )
+    db.add(tx)
+    await db.flush()
+
+    return {
+        "status": "refilled",
+        "fun_balance": float(balance.fun_amount),
+        "next_refill_hours": FUN_REFILL_COOLDOWN_HOURS,
     }

@@ -52,7 +52,10 @@ export default function Home() {
             <p className="text-gray-400 text-xs">Привет,</p>
             <p className="font-bold text-lg">{tgUser?.first_name || 'Player'}</p>
           </div>
-          <ChipBalance amount={user?.balance ?? 0} size="lg" />
+          <div className="flex flex-col items-end gap-1">
+            <ChipBalance amount={user?.balance ?? 0} size="md" currency="chip" />
+            <ChipBalance amount={user?.fun_balance ?? 0} size="sm" currency="fun" />
+          </div>
         </div>
 
         <div className="flex gap-3">
