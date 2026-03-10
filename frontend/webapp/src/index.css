@@ -5,16 +5,28 @@
 @layer base {
   body {
     @apply bg-poker-dark text-white font-sans antialiased;
-    background-image:
-      url('/noise.png'),
-      linear-gradient(135deg, #0a0e17 0%, #0d1220 50%, #0a0e17 100%);
+    background:
+      radial-gradient(ellipse at 20% 0%, rgba(212, 168, 67, 0.04) 0%, transparent 50%),
+      radial-gradient(ellipse at 80% 100%, rgba(41, 128, 185, 0.03) 0%, transparent 50%),
+      radial-gradient(ellipse at 50% 50%, rgba(13, 18, 32, 1) 0%, rgba(6, 10, 18, 1) 100%);
     background-attachment: fixed;
     min-height: 100vh;
     overflow-x: hidden;
   }
 
+  /* Subtle animated grain overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url('/noise.png');
+    opacity: 0.03;
+    pointer-events: none;
+    z-index: 0;
+  }
+
   ::-webkit-scrollbar {
-    width: 4px;
+    width: 3px;
   }
 
   ::-webkit-scrollbar-track {
@@ -22,33 +34,66 @@
   }
 
   ::-webkit-scrollbar-thumb {
-    background: #1e2a3a;
+    background: rgba(212, 168, 67, 0.2);
     border-radius: 2px;
+  }
+
+  /* Selection color */
+  ::selection {
+    background: rgba(212, 168, 67, 0.3);
+    color: white;
   }
 }
 
 @layer components {
   .btn-gold {
     @apply bg-gradient-to-r from-poker-gold to-poker-gold-light text-poker-darker
-           font-bold py-3 px-6 rounded-xl shadow-gold
+           font-bold py-3 px-6 rounded-xl
            hover:shadow-lg transition-all duration-300
-           active:scale-95;
+           active:scale-[0.97];
+    box-shadow:
+      0 0 20px rgba(212, 168, 67, 0.25),
+      0 4px 12px rgba(0, 0, 0, 0.3),
+      inset 0 1px 0 rgba(255, 255, 255, 0.2);
   }
 
   .btn-secondary {
     @apply bg-poker-card border border-poker-border text-white
            font-medium py-3 px-6 rounded-xl
-           hover:border-poker-gold/50 transition-all duration-300
-           active:scale-95;
+           hover:border-poker-gold/40 transition-all duration-300
+           active:scale-[0.97];
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
   }
 
   .card-surface {
-    @apply bg-poker-card/80 backdrop-blur-sm border border-poker-border
-           rounded-2xl shadow-card;
+    @apply bg-poker-card/70 backdrop-blur-sm border border-white/[0.06]
+           rounded-2xl;
+    box-shadow:
+      0 4px 24px rgba(0, 0, 0, 0.4),
+      0 0 0 1px rgba(255, 255, 255, 0.03) inset;
+  }
+
+  .card-surface-glow {
+    @apply card-surface;
+    box-shadow:
+      0 4px 24px rgba(0, 0, 0, 0.4),
+      0 0 40px rgba(212, 168, 67, 0.06),
+      0 0 0 1px rgba(212, 168, 67, 0.08) inset;
   }
 
   .chip-badge {
-    @apply inline-flex items-center gap-1 bg-poker-gold/20 text-poker-gold
-           px-3 py-1 rounded-full text-sm font-semibold;
+    @apply inline-flex items-center gap-1 bg-poker-gold/15 text-poker-gold
+           px-3 py-1 rounded-full text-sm font-bold;
+    box-shadow: 0 0 12px rgba(212, 168, 67, 0.1);
+  }
+
+  /* Premium section header */
+  .section-title {
+    @apply text-xs font-bold uppercase tracking-[0.15em] text-gray-500 mb-3;
+  }
+
+  /* Glow text */
+  .text-glow-gold {
+    text-shadow: 0 0 20px rgba(212, 168, 67, 0.4);
   }
 }

@@ -103,14 +103,14 @@ export default function AdminTournaments() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs text-gray-500">Бай-ин (CHIP)</label>
+                  <label className="text-xs text-gray-500">Бай-ин (RR)</label>
                   <input type="number" value={form.buy_in}
                     onChange={(e) => setForm({ ...form, buy_in: +e.target.value })}
                     className="w-full bg-poker-darker border border-poker-border rounded-lg px-3 py-2 text-sm text-white outline-none"
                   />
                 </div>
                 <div>
-                  <label className="text-xs text-gray-500">Комиссия (CHIP)</label>
+                  <label className="text-xs text-gray-500">Комиссия (RR)</label>
                   <input type="number" value={form.fee}
                     onChange={(e) => setForm({ ...form, fee: +e.target.value })}
                     className="w-full bg-poker-darker border border-poker-border rounded-lg px-3 py-2 text-sm text-white outline-none"

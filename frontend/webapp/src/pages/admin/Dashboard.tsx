@@ -72,7 +72,7 @@ export default function Dashboard() {
 
       {/* Rake stats */}
       <div>
-        <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-3">Рейк (CHIP)</h3>
+        <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-3">Рейк (RR)</h3>
         <div className="grid grid-cols-2 gap-3">
           {rakeCards.map((card, i) => (
             <motion.div

@@ -1,118 +1,217 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { useTonAddress } from '@tonconnect/ui-react'
+import { useTonAddress, useTonConnectUI } from '@tonconnect/ui-react'
 import { useTelegram } from '../hooks/useTelegram'
 import { useStore } from '../store/useStore'
 import { ChipBalance } from '../components/ChipBalance'
 
-interface ProfileData {
-  total_games: number
-  total_won: number
-  total_deposited: number
-  total_withdrawn: number
-  member_since: string
+type ProfileTab = 'stats' | 'rewards'
+
+interface Achievement {
+  id: string
+  icon: string
+  name: string
+  description: string
+  progress: number
+  max: number
+  unlocked: boolean
+  rarity: 'bronze' | 'silver' | 'gold' | 'diamond'
+}
+
+const achievements: Achievement[] = [
+  { id: 'first_hand', icon: '🃏', name: 'Первая раздача', description: 'Сыграйте первую руку', progress: 1, max: 1, unlocked: true, rarity: 'bronze' },
+  { id: 'first_win', icon: '🏆', name: 'Первая победа', description: 'Выиграйте раздачу', progress: 1, max: 1, unlocked: true, rarity: 'bronze' },
+  { id: 'hands_100', icon: '🎯', name: 'Сотня', description: 'Сыграйте 100 рук', progress: 47, max: 100, unlocked: false, rarity: 'silver' },
+  { id: 'hands_1000', icon: '⚡', name: 'Тысячник', description: 'Сыграйте 1000 рук', progress: 47, max: 1000, unlocked: false, rarity: 'gold' },
+  { id: 'royal_flush', icon: '👑', name: 'Роял Флеш', description: 'Соберите Royal Flush', progress: 0, max: 1, unlocked: false, rarity: 'diamond' },
+  { id: 'bluff_master', icon: '😏', name: 'Мастер блефа', description: 'Выиграйте 10 рук без шоудауна', progress: 3, max: 10, unlocked: false, rarity: 'silver' },
+  { id: 'big_pot', icon: '💰', name: 'Большой банк', description: 'Выиграйте банк 10,000+ RR', progress: 0, max: 1, unlocked: false, rarity: 'gold' },
+  { id: 'tournament_win', icon: '🏅', name: 'Чемпион', description: 'Выиграйте турнир', progress: 0, max: 1, unlocked: false, rarity: 'gold' },
+  { id: 'all_in_win', icon: '🔥', name: 'Ва-банк!', description: 'Выиграйте 5 олл-инов', progress: 2, max: 5, unlocked: false, rarity: 'silver' },
+  { id: 'streak_5', icon: '⭐', name: 'Серия побед', description: 'Выиграйте 5 рук подряд', progress: 0, max: 1, unlocked: false, rarity: 'gold' },
+]
+
+const rarityStyle: Record<string, { border: string; bg: string; glow: string }> = {
+  bronze: { border: 'border-amber-700/40', bg: 'bg-amber-900/20', glow: '' },
+  silver: { border: 'border-gray-400/30', bg: 'bg-gray-700/20', glow: '' },
+  gold: { border: 'border-poker-gold/40', bg: 'bg-yellow-900/20', glow: 'shadow-[0_0_12px_rgba(212,168,67,0.15)]' },
+  diamond: { border: 'border-cyan-400/40', bg: 'bg-cyan-900/20', glow: 'shadow-[0_0_16px_rgba(34,211,238,0.15)]' },
 }
 
 export default function Profile() {
   const { user: tgUser } = useTelegram()
-  const walletAddress = useTonAddress()
   const user = useStore((s) => s.user)
-  const [stats, setStats] = useState<ProfileData | null>(null)
+  const address = useTonAddress()
+  const [tonConnectUI] = useTonConnectUI()
+  const [tab, setTab] = useState<ProfileTab>('stats')
 
-  // Demo stats
-  useEffect(() => {
-    setStats({
-      total_games: 0,
-      total_won: 0,
-      total_deposited: 0,
-      total_withdrawn: 0,
-      member_since: new Date().toISOString(),
-    })
-  }, [])
-
-  const statItems = [
-    { label: 'Игр сыграно', value: stats?.total_games ?? 0, icon: '🃏' },
-    { label: 'Выиграно', value: `${(stats?.total_won ?? 0).toFixed(0)} RR`, icon: '💰' },
-    { label: 'Депозиты', value: `${(stats?.total_deposited ?? 0).toFixed(0)} RR`, icon: '📥' },
-    { label: 'Выводы', value: `${(stats?.total_withdrawn ?? 0).toFixed(0)} RR`, icon: '📤' },
-  ]
+  const unlockedCount = achievements.filter((a) => a.unlocked).length
 
   return (
-    <div className="min-h-screen pb-20 px-4 pt-6">
-      <motion.h1
-        initial={{ x: -20, opacity: 0 }}
-        animate={{ x: 0, opacity: 1 }}
-        className="text-2xl font-bold mb-6"
-      >
-        👤 Профиль
-      </motion.h1>
-
-      {/* User card */}
+    <div className="min-h-screen pb-24 px-4 pt-6">
+      {/* Profile header */}
       <motion.div
-        initial={{ scale: 0.95, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        className="card-surface p-5 mb-6"
+        initial={{ y: -10, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        className="card-surface-glow p-5 mb-5"
       >
         <div className="flex items-center gap-4 mb-4">
-          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-poker-gold to-yellow-600 flex items-center justify-center text-2xl font-bold text-poker-darker">
-            {(tgUser?.first_name?.[0] || 'P').toUpperCase()}
+          {/* Avatar */}
+          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-poker-gold/30 to-poker-gold/5 border border-poker-gold/20 flex items-center justify-center text-2xl font-bold text-poker-gold flex-shrink-0">
+            {tgUser?.first_name?.[0] || '?'}
           </div>
-          <div>
-            <h2 className="font-bold text-lg">{tgUser?.first_name || 'Player'}</h2>
-            {tgUser?.username && (
-              <p className="text-gray-500 text-sm">@{tgUser.username}</p>
-            )}
-            <p className="text-gray-600 text-xs mt-0.5">ID: {tgUser?.id || '—'}</p>
+          <div className="flex-1 min-w-0">
+            <h2 className="font-extrabold text-lg truncate">{tgUser?.first_name || 'Player'}</h2>
+            <p className="text-xs text-gray-500">@{tgUser?.username || 'anonymous'}</p>
+            <p className="text-[10px] text-gray-600 mt-0.5">ID: {tgUser?.id}</p>
           </div>
         </div>
 
-        <div className="flex items-center justify-between p-3 bg-poker-darker rounded-xl">
-          <span className="text-gray-400 text-sm">Баланс</span>
-          <ChipBalance amount={user?.balance ?? 0} />
+        {/* Balances */}
+        <div className="flex gap-2 mb-4">
+          <div className="flex-1 bg-white/[0.03] rounded-xl p-3 text-center">
+            <div className="text-[10px] text-gray-500 mb-1">Royal Roll</div>
+            <div className="font-bold text-poker-gold">{(user?.balance ?? 0).toLocaleString()}</div>
+          </div>
+          <div className="flex-1 bg-white/[0.03] rounded-xl p-3 text-center">
+            <div className="text-[10px] text-gray-500 mb-1">FUN</div>
+            <div className="font-bold text-emerald-400">{(user?.fun_balance ?? 0).toLocaleString()}</div>
+          </div>
+          <div className="flex-1 bg-white/[0.03] rounded-xl p-3 text-center">
+            <div className="text-[10px] text-gray-500 mb-1">Награды</div>
+            <div className="font-bold text-white">{unlockedCount}/{achievements.length}</div>
+          </div>
         </div>
 
-        {walletAddress && (
-          <div className="mt-3 p-3 bg-poker-darker rounded-xl">
-            <p className="text-gray-500 text-xs mb-1">TON Кошелёк</p>
-            <p className="text-xs text-gray-300 font-mono truncate">{walletAddress}</p>
+        {/* Wallet */}
+        {address ? (
+          <div className="bg-white/[0.03] rounded-xl p-3 flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="text-xs text-gray-400 truncate flex-1 font-mono">{address}</span>
+            <button
+              onClick={() => tonConnectUI.disconnect()}
+              className="text-[10px] text-red-400 font-medium"
+            >
+              Отключить
+            </button>
           </div>
+        ) : (
+          <button
+            onClick={() => tonConnectUI.openModal()}
+            className="btn-gold w-full !text-sm"
+          >
+            🔗 Подключить кошелёк
+          </button>
         )}
       </motion.div>
 
-      {/* Stats */}
-      <motion.div
-        initial={{ y: 20, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ delay: 0.1 }}
-      >
-        <h3 className="font-bold text-sm text-gray-400 mb-3 uppercase tracking-wider">Статистика</h3>
-        <div className="grid grid-cols-2 gap-3">
-          {statItems.map((item, i) => (
-            <motion.div
-              key={item.label}
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ delay: 0.15 + i * 0.05 }}
-              className="card-surface p-4 text-center"
-            >
-              <span className="text-xl">{item.icon}</span>
-              <p className="font-bold text-poker-gold mt-1">{item.value}</p>
-              <p className="text-[10px] text-gray-500 mt-0.5">{item.label}</p>
-            </motion.div>
-          ))}
-        </div>
-      </motion.div>
+      {/* Tab switcher */}
+      <div className="flex gap-1.5 mb-5 bg-poker-darker/50 rounded-2xl p-1.5">
+        {([
+          { key: 'stats' as ProfileTab, label: '📊 Статистика' },
+          { key: 'rewards' as ProfileTab, label: '🏆 Награды' },
+        ]).map((t) => (
+          <button
+            key={t.key}
+            onClick={() => setTab(t.key)}
+            className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all relative ${
+              tab === t.key ? 'text-white' : 'text-gray-500'
+            }`}
+          >
+            {tab === t.key && (
+              <motion.div
+                layoutId="profile-tab"
+                className="absolute inset-0 bg-poker-card border border-white/[0.08] rounded-xl"
+              />
+            )}
+            <span className="relative z-10">{t.label}</span>
+          </button>
+        ))}
+      </div>
 
-      {/* Member since */}
-      {stats?.member_since && (
-        <motion.p
+      {/* Stats tab */}
+      {tab === 'stats' && (
+        <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ delay: 0.4 }}
-          className="text-center text-xs text-gray-600 mt-6"
+          className="space-y-3"
         >
-          Участник с {new Date(stats.member_since).toLocaleDateString('ru-RU')}
-        </motion.p>
+          <p className="section-title">Игровая статистика</p>
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              { label: 'Рук сыграно', value: '47', icon: '🃏' },
+              { label: 'Рук выиграно', value: '18', icon: '✅' },
+              { label: 'Винрейт', value: '38%', icon: '📈' },
+              { label: 'Лучшая рука', value: 'Full House', icon: '🏆' },
+              { label: 'Всего выиграно', value: '2,450 RR', icon: '💰' },
+              { label: 'Турниров', value: '0', icon: '🏅' },
+            ].map((stat, i) => (
+              <motion.div
+                key={stat.label}
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ delay: i * 0.05 }}
+                className="card-surface p-4"
+              >
+                <div className="text-lg mb-1">{stat.icon}</div>
+                <div className="font-bold text-sm">{stat.value}</div>
+                <div className="text-[10px] text-gray-500 mt-0.5">{stat.label}</div>
+              </motion.div>
+            ))}
+          </div>
+        </motion.div>
+      )}
+
+      {/* Rewards tab */}
+      {tab === 'rewards' && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="space-y-2"
+        >
+          <p className="section-title">Достижения ({unlockedCount}/{achievements.length})</p>
+          {achievements.map((a, i) => {
+            const style = rarityStyle[a.rarity]
+            const pct = Math.min(100, (a.progress / a.max) * 100)
+            return (
+              <motion.div
+                key={a.id}
+                initial={{ x: -12, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                transition={{ delay: i * 0.03 }}
+                className={`card-surface p-3.5 border ${style.border} ${style.glow} ${
+                  !a.unlocked ? 'opacity-70' : ''
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className={`w-11 h-11 rounded-xl ${style.bg} flex items-center justify-center text-xl flex-shrink-0`}>
+                    {a.unlocked ? a.icon : '🔒'}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-sm">{a.name}</span>
+                      {a.unlocked && <span className="text-emerald-400 text-xs">✓</span>}
+                    </div>
+                    <p className="text-[11px] text-gray-500">{a.description}</p>
+                    {!a.unlocked && (
+                      <div className="mt-1.5 flex items-center gap-2">
+                        <div className="flex-1 h-1 bg-white/[0.06] rounded-full overflow-hidden">
+                          <motion.div
+                            initial={{ width: 0 }}
+                            animate={{ width: `${pct}%` }}
+                            transition={{ delay: i * 0.05, duration: 0.5 }}
+                            className="h-full bg-poker-gold/60 rounded-full"
+                          />
+                        </div>
+                        <span className="text-[10px] text-gray-600 font-mono">{a.progress}/{a.max}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </motion.div>
+            )
+          })}
+        </motion.div>
       )}
     </div>
   )
