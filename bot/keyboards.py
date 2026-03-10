@@ -10,31 +10,40 @@ from config import get_bot_settings
 
 def get_main_keyboard() -> ReplyKeyboardMarkup:
     settings = get_bot_settings()
-    return ReplyKeyboardMarkup(
-        keyboard=[
-            [KeyboardButton(
-                text="🎮 Играть",
-                web_app=WebAppInfo(url=settings.webapp_url),
-            )],
-            [
-                KeyboardButton(text="💰 Купить RR"),
-                KeyboardButton(text="💸 Продать RR"),
-            ],
-            [
-                KeyboardButton(text="💎 Баланс"),
-                KeyboardButton(text="👤 Профиль"),
-            ],
-        ],
-        resize_keyboard=True,
-    )
+    rows = []
+
+    # WebApp button only works with HTTPS
+    if settings.webapp_url.startswith("https://"):
+        rows.append([KeyboardButton(
+            text="🎮 Играть",
+            web_app=WebAppInfo(url=settings.webapp_url),
+        )])
+
+    rows.append([
+        KeyboardButton(text="💰 Купить RR"),
+        KeyboardButton(text="💸 Продать RR"),
+    ])
+    rows.append([
+        KeyboardButton(text="💎 Баланс"),
+        KeyboardButton(text="👤 Профиль"),
+    ])
+
+    return ReplyKeyboardMarkup(keyboard=rows, resize_keyboard=True)
 
 
 def get_webapp_button() -> InlineKeyboardMarkup:
     settings = get_bot_settings()
+    if settings.webapp_url.startswith("https://"):
+        return InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(
+                text="🃏 Открыть Poker",
+                web_app=WebAppInfo(url=settings.webapp_url),
+            )],
+        ])
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(
-            text="🃏 Открыть Poker",
-            web_app=WebAppInfo(url=settings.webapp_url),
+            text="🌐 Открыть в браузере",
+            url=settings.webapp_url,
         )],
     ])
 
