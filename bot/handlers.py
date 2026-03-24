@@ -1,9 +1,10 @@
 import logging
 import os
-from aiogram import Router
+from aiogram import Router, F
 from aiogram.types import Message, FSInputFile, ReplyKeyboardRemove
 from aiogram.filters import CommandStart, Command
 from aiogram.fsm.context import FSMContext
+from aiogram.exceptions import TelegramBadRequest
 from keyboards import get_main_keyboard, get_webapp_button, get_admin_button, ADMIN_IDS
 
 router = Router()
@@ -23,22 +24,32 @@ WELCOME_TEXT = (
     "👇 Нажми <b>♠️ ВХОД В ЗАЛ</b>, чтобы начать игру."
 )
 
+DEPOSIT_TEXT = (
+    "💳 <b>Пополнение баланса</b>\n\n"
+    "Для пополнения счёта обратитесь к менеджеру клуба:\n\n"
+    "👤 <b>@RoyalRoll_Manager</b>\n\n"
+    "Укажите:\n"
+    "• Ваш Telegram username\n"
+    "• Сумму пополнения\n"
+    "• Способ оплаты\n\n"
+    "⏱ Зачисление в течение 15 минут."
+)
+
+DEPOSIT_KEYWORDS = [
+    "депозит", "пополн", "купить", "купи", "buy", "deposit",
+    "внести", "закинуть", "закинь", "баланс", "rr", "рр",
+    "реквизит", "оплат", "перевод",
+]
+
 
 @router.message(CommandStart())
 async def cmd_start(message: Message, state: FSMContext):
     await state.clear()
-
-    # Step 1: remove any old keyboard (купить/продать/etc) for ALL users
-    await message.answer("...", reply_markup=ReplyKeyboardRemove())
-
-    # Step 2: delete that placeholder message immediately
+    rm = await message.answer("​", reply_markup=ReplyKeyboardRemove())
     try:
-        from aiogram.exceptions import TelegramBadRequest
+        await rm.delete()
+    except TelegramBadRequest:
         pass
-    except Exception:
-        pass
-
-    # Step 3: send banner + new clean keyboard
     kb = get_main_keyboard(message.from_user.id)
     if os.path.exists(BANNER_PATH):
         await message.answer_photo(
@@ -76,3 +87,15 @@ async def cmd_help(message: Message):
         parse_mode="HTML",
         reply_markup=get_webapp_button(),
     )
+
+
+@router.message(Command("deposit"))
+async def cmd_deposit(message: Message):
+    await message.answer(DEPOSIT_TEXT, parse_mode="HTML")
+
+
+@router.message(F.text)
+async def handle_text(message: Message):
+    text_lower = (message.text or "").lower()
+    if any(kw in text_lower for kw in DEPOSIT_KEYWORDS):
+        await message.answer(DEPOSIT_TEXT, parse_mode="HTML")
