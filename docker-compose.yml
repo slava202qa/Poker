@@ -31,10 +31,11 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    # stamp 0001 is a no-op if alembic_version already exists;
-    # it only sets the baseline on a fresh DB that was created via create_all
+    # On a DB bootstrapped via SQLAlchemy create_all (no alembic_version table),
+    # stamp head so Alembic knows all tables exist, then upgrade is a no-op.
+    # On a fresh DB the stamp is skipped because alembic_version already exists.
     command: >
-      sh -c "alembic stamp 0001 2>/dev/null || true && alembic upgrade head"
+      sh -c "alembic stamp head 2>/dev/null || true && alembic upgrade head"
     restart: "no"
 
   backend:
