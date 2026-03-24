@@ -168,6 +168,21 @@ class GameEngine:
             reveal = is_showdown or (for_user_id and p.user_id == for_user_id)
             players_data.append(p.to_dict(reveal=reveal))
 
+        # Resolve SB/BB seats from blind players
+        sb_seat: int | None = None
+        bb_seat: int | None = None
+        if self.hand_in_progress:
+            try:
+                sb_p, bb_p = self._get_blind_players()
+                sb_seat = sb_p.seat
+                bb_seat = bb_p.seat
+            except Exception:
+                pass
+
+        dealer_player = next(
+            (p for p in self.players.values() if p.seat == self.dealer_seat), None
+        )
+
         return {
             "table_id": self.table_id,
             "street": self.street.value,
@@ -180,6 +195,10 @@ class GameEngine:
             "hand_in_progress": self.hand_in_progress,
             "turn_timeout": self.turn_timeout,
             "turn_deadline": self._turn_deadline,
+            # Dealer / blind indicators for frontend
+            "dealer_seat": self.dealer_seat,
+            "sb_seat": sb_seat,
+            "bb_seat": bb_seat,
         }
 
     def get_valid_actions(self, user_id: int) -> list[dict]:

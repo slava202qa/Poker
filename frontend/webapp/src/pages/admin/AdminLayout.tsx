@@ -8,6 +8,7 @@ const tabs = [
   { path: '/admin/tables', label: 'Столы', icon: '🃏' },
   { path: '/admin/tournaments', label: 'Турниры', icon: '🏆' },
   { path: '/admin/users', label: 'Игроки', icon: '👥' },
+  { path: '/admin/withdrawals', label: 'Обмен', icon: '💸' },
 ]
 
 export default function AdminLayout() {

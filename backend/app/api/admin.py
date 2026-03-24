@@ -17,6 +17,11 @@ from app.models.tournament import Tournament, TournamentPlayer, TournamentStatus
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
+# Withdrawal request status stored in transaction.reference field:
+# "withdraw_to:<wallet>:pending"  → awaiting approval
+# "withdraw_to:<wallet>:approved" → sent on-chain
+# "withdraw_to:<wallet>:rejected" → rejected by admin
+
 
 # ── Admin auth dependency ──
 
@@ -405,3 +410,160 @@ async def admin_delete_tournament(
     await db.delete(t)
     await db.flush()
     return {"deleted": tournament_id}
+
+# ── Withdrawal requests ───────────────────────────────────────────────────────
+
+class WithdrawalOut(BaseModel):
+    id: int
+    user_id: int
+    username: str | None
+    first_name: str
+    ton_wallet: str | None
+    amount: float
+    status: str          # pending / approved / rejected
+    ton_tx_hash: str | None
+    created_at: str
+
+
+class BulkApproveRequest(BaseModel):
+    tx_ids: list[int]
+
+
+def _parse_withdraw_status(reference: str | None) -> str:
+    if not reference:
+        return "pending"
+    if ":approved" in reference:
+        return "approved"
+    if ":rejected" in reference:
+        return "rejected"
+    return "pending"
+
+
+@router.get("/withdrawals", response_model=list[WithdrawalOut])
+async def list_withdrawals(
+    status: str = "pending",   # pending | approved | rejected | all
+    limit: int = 100,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """List withdrawal requests with user info."""
+    result = await db.execute(
+        select(Transaction, User)
+        .join(User, Transaction.user_id == User.id)
+        .where(Transaction.tx_type == TxType.WITHDRAW)
+        .order_by(Transaction.created_at.desc())
+        .limit(limit)
+    )
+    rows = result.all()
+
+    out = []
+    for tx, u in rows:
+        tx_status = _parse_withdraw_status(tx.reference)
+        if status != "all" and tx_status != status:
+            continue
+        out.append(WithdrawalOut(
+            id=tx.id,
+            user_id=u.id,
+            username=u.username,
+            first_name=u.first_name,
+            ton_wallet=u.ton_wallet,
+            amount=abs(float(tx.amount)),
+            status=tx_status,
+            ton_tx_hash=tx.ton_tx_hash,
+            created_at=tx.created_at.isoformat(),
+        ))
+    return out
+
+
+@router.post("/withdrawals/{tx_id}/approve")
+async def approve_withdrawal(
+    tx_id: int,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """Approve a single withdrawal and send crypto automatically."""
+    return await _process_withdrawal(tx_id, db, approve=True)
+
+
+@router.post("/withdrawals/{tx_id}/reject")
+async def reject_withdrawal(
+    tx_id: int,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """Reject a withdrawal and refund the user's balance."""
+    return await _process_withdrawal(tx_id, db, approve=False)
+
+
+@router.post("/withdrawals/bulk-approve")
+async def bulk_approve_withdrawals(
+    body: BulkApproveRequest,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """Approve up to 10 withdrawals at once. Sends crypto for each."""
+    if len(body.tx_ids) > 10:
+        raise HTTPException(status_code=400, detail="Max 10 at a time")
+
+    results = []
+    for tx_id in body.tx_ids:
+        try:
+            r = await _process_withdrawal(tx_id, db, approve=True)
+            results.append({"tx_id": tx_id, **r})
+        except Exception as e:
+            results.append({"tx_id": tx_id, "status": "error", "detail": str(e)})
+
+    return {"results": results}
+
+
+async def _process_withdrawal(tx_id: int, db: AsyncSession, approve: bool) -> dict:
+    from app.ton.ton_withdraw import send_jetton_transfer
+
+    result = await db.execute(
+        select(Transaction, User)
+        .join(User, Transaction.user_id == User.id)
+        .where(Transaction.id == tx_id, Transaction.tx_type == TxType.WITHDRAW)
+    )
+    row = result.one_or_none()
+    if not row:
+        raise HTTPException(status_code=404, detail="Withdrawal not found")
+
+    tx, user = row
+    current_status = _parse_withdraw_status(tx.reference)
+
+    if current_status != "pending":
+        raise HTTPException(status_code=409, detail=f"Already {current_status}")
+
+    wallet_part = (tx.reference or "").replace("withdraw_to:", "").split(":")[0]
+
+    if not approve:
+        # Refund balance
+        bal_result = await db.execute(select(Balance).where(Balance.user_id == user.id))
+        bal = bal_result.scalar_one_or_none()
+        if bal:
+            bal.amount = float(bal.amount) + abs(float(tx.amount))
+        tx.reference = f"withdraw_to:{wallet_part}:rejected"
+        await db.commit()
+        return {"status": "rejected", "tx_id": tx_id}
+
+    # Auto-send crypto
+    amount = abs(float(tx.amount))
+    wallet = user.ton_wallet or wallet_part
+
+    if not wallet:
+        raise HTTPException(status_code=400, detail="No wallet address for user")
+
+    # Auto-approve small amounts (≤ 50 RR), large ones also approved but logged
+    tx_hash = await send_jetton_transfer(wallet, amount, memo=f"withdraw:{tx_id}")
+
+    if tx_hash:
+        tx.ton_tx_hash = tx_hash
+        tx.reference = f"withdraw_to:{wallet}:approved"
+        await db.commit()
+        return {"status": "approved", "tx_id": tx_id, "tx_hash": tx_hash}
+    else:
+        # TON not configured yet — mark approved without hash
+        tx.reference = f"withdraw_to:{wallet}:approved"
+        await db.commit()
+        return {"status": "approved_manual", "tx_id": tx_id, "tx_hash": None,
+                "note": "TON not configured, send manually"}

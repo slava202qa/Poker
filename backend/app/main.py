@@ -7,8 +7,9 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Query
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
-from app.database import engine, Base
+from app.database import engine, Base, async_session
 from app.api import api_router
+from app.api.deps import validate_init_data
 from app.ws import manager as ws_manager
 from app.game_manager import handle_ws_message
 from app.ton.ton_listener import poll_deposits
@@ -24,6 +25,12 @@ async def lifespan(app: FastAPI):
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     logger.info("Database tables created")
+
+    # Seed Season 1 battle pass if not exists
+    from app.api.battlepass import seed_season_1
+    from app.database import async_session as _session_factory
+    async with _session_factory() as _db:
+        await seed_season_1(_db)
 
     # Start TON deposit listener
     deposit_task = asyncio.create_task(poll_deposits())
@@ -72,13 +79,45 @@ async def health():
 async def websocket_table(
     websocket: WebSocket,
     table_id: int,
-    user_id: int = Query(...),
+    init_data: str = Query(..., alias="initData"),
 ):
     """
     WebSocket endpoint for real-time game communication.
-    Client connects with: ws://host/ws/table/{table_id}?user_id={user_id}
+    Client connects with: ws://host/ws/table/{table_id}?initData=<telegram_init_data>
+
+    initData is validated via HMAC-SHA256 before accepting the connection.
+    user_id is extracted from the validated payload — never trusted from client.
     """
+    cfg = get_settings()
+
+    # Validate initData before accepting the connection
+    try:
+        tg_user = validate_init_data(init_data, cfg.bot_token)
+        telegram_id = tg_user["id"]
+    except Exception:
+        await websocket.close(code=4001, reason="Unauthorized")
+        return
+
+    # Resolve internal user_id from telegram_id
+    from sqlalchemy import select
+    from app.models.user import User
+    try:
+        async with async_session() as session:
+            result = await session.execute(
+                select(User).where(User.telegram_id == telegram_id)
+            )
+            db_user = result.scalar_one_or_none()
+            if db_user is None:
+                await websocket.close(code=4002, reason="User not found")
+                return
+            user_id = db_user.id
+    except Exception as e:
+        logger.error(f"WS auth DB error: {e}")
+        await websocket.close(code=4003, reason="Internal error")
+        return
+
     await ws_manager.connect(table_id, user_id, websocket)
+    logger.info(f"WS authenticated: tg={telegram_id} user_id={user_id} table={table_id}")
 
     try:
         while True:

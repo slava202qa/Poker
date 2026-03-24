@@ -15,6 +15,8 @@ import Dashboard from './pages/admin/Dashboard'
 import AdminTables from './pages/admin/AdminTables'
 import AdminTournaments from './pages/admin/AdminTournaments'
 import AdminUsers from './pages/admin/AdminUsers'
+import AdminWithdrawals from './pages/admin/AdminWithdrawals'
+import Terms from './pages/Terms'
 
 export default function App() {
   const { tg, user: tgUser } = useTelegram()
@@ -57,12 +59,14 @@ export default function App() {
         <Route path="/table/:tableId" element={<TableRoom />} />
         <Route path="/shop" element={<Shop />} />
         <Route path="/profile" element={<Profile />} />
+        <Route path="/terms" element={<Terms />} />
         {/* Admin panel */}
         <Route path="/admin" element={<AdminLayout />}>
           <Route index element={<Dashboard />} />
           <Route path="tables" element={<AdminTables />} />
           <Route path="tournaments" element={<AdminTournaments />} />
           <Route path="users" element={<AdminUsers />} />
+          <Route path="withdrawals" element={<AdminWithdrawals />} />
         </Route>
       </Routes>
       <BottomNav />

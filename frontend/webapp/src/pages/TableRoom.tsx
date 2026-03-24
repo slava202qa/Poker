@@ -15,13 +15,22 @@ import { Confetti } from '../components/Confetti'
 const SEAT_POSITIONS: Record<number, { x: string; y: string }> = {
   0: { x: '50%', y: '88%' },
   1: { x: '15%', y: '75%' },
-  2: { x: '5%', y: '45%' },
+  2: { x: '5%',  y: '45%' },
   3: { x: '15%', y: '15%' },
-  4: { x: '40%', y: '5%' },
-  5: { x: '60%', y: '5%' },
+  4: { x: '40%', y: '5%'  },
+  5: { x: '60%', y: '5%'  },
   6: { x: '85%', y: '15%' },
   7: { x: '95%', y: '45%' },
   8: { x: '85%', y: '75%' },
+}
+
+// Badge shown next to a player seat
+function SeatBadge({ label, color }: { label: string; color: string }) {
+  return (
+    <div className={`absolute -top-3 left-1/2 -translate-x-1/2 text-[9px] font-black px-1.5 py-0.5 rounded-full border ${color} z-20 whitespace-nowrap`}>
+      {label}
+    </div>
+  )
 }
 
 export default function TableRoom() {
@@ -29,13 +38,11 @@ export default function TableRoom() {
   const navigate = useNavigate()
   const { tg, user: tgUser } = useTelegram()
   const gameState = useStore((s) => s.gameState)
+  const storeUser = useStore((s) => s.user)
   const userId = tgUser?.id ?? 0
   const sound = useSound()
 
-  const { send } = useWebSocket(
-    tableId ? Number(tableId) : null,
-    userId || null,
-  )
+  const { send } = useWebSocket(tableId ? Number(tableId) : null)
 
   const [timer, setTimer] = useState(30)
   const [flyingChips, setFlyingChips] = useState<FlyingChip[]>([])
@@ -46,14 +53,12 @@ export default function TableRoom() {
   const prevPotRef = useRef<number>(0)
   const prevHandRef = useRef<boolean>(false)
 
-  // ── Sound + animation triggers based on state changes ──
-
+  // ── Sound + animation triggers ──────────────────────────────────────────────
   useEffect(() => {
     if (!gameState) return
     const street = gameState.street
     const prevStreet = prevStreetRef.current
 
-    // New community cards dealt
     if (street !== prevStreet && prevStreet) {
       if (street === 'flop') {
         sound.cardDeal()
@@ -61,76 +66,52 @@ export default function TableRoom() {
         setTimeout(() => sound.cardDeal(), 300)
       } else if (street === 'turn' || street === 'river') {
         sound.cardFlip()
-      } else if (street === 'showdown') {
-        // Showdown — check for winners
-        handleShowdown()
       }
     }
-
-    // Hand just started — deal sound
-    if (gameState.hand_in_progress && !prevHandRef.current) {
-      sound.cardDeal()
-      setTimeout(() => sound.cardDeal(), 200)
-    }
-
-    // Pot increased — chip sound
-    if (gameState.pot > prevPotRef.current && prevPotRef.current > 0) {
-      sound.chipClick()
-    }
-
     prevStreetRef.current = street
-    prevPotRef.current = gameState.pot
-    prevHandRef.current = gameState.hand_in_progress
-  }, [gameState?.street, gameState?.pot, gameState?.hand_in_progress])
 
-  const handleShowdown = useCallback(() => {
-    // Find winner from state (player with highest stack change)
-    if (!gameState) return
-    const players = gameState.players || []
-    // Show win overlay for 3 seconds
-    const winner = players.reduce((best: any, p: any) =>
-      p.stack > (best?.stack || 0) ? p : best, null)
+    const pot = gameState.pot ?? 0
+    const prevPot = prevPotRef.current
+    if (pot > prevPot && prevPot > 0) {
+      const chips = createBetChips(pot - prevPot)
+      setFlyingChips(chips)
+    }
+    prevPotRef.current = pot
 
-    if (winner) {
-      const amount = gameState.pot * 0.97 // approximate after rake
-      setWinInfo({
-        name: winner.username || `Player ${winner.seat + 1}`,
-        amount,
-        handRank: '',
-      })
-      setShowWin(true)
-
-      // Big win confetti (pot > 10x big blind, assume BB ~10)
-      if (gameState.pot > 100) {
-        setShowConfetti(true)
-        sound.bigWin()
-      } else {
-        sound.win()
+    const handInProgress = gameState.hand_in_progress
+    if (!handInProgress && prevHandRef.current) {
+      const winners = gameState.players?.filter((p: any) => p.last_win > 0) ?? []
+      if (winners.length > 0) {
+        const winner = winners[0]
+        const isMe = winner.user_id === userId
+        setWinInfo({
+          name: isMe ? 'Вы' : (winner.username || `Player ${winner.user_id}`),
+          amount: winner.last_win,
+          handRank: winner.hand_rank || '',
+        })
+        setShowWin(true)
+        if (isMe) {
+          setShowConfetti(true)
+          sound.win()
+          const winChips = createWinChips(winner.last_win)
+          setFlyingChips(winChips)
+        }
+        setTimeout(() => { setShowWin(false); setShowConfetti(false) }, 3500)
       }
-
-      setTimeout(() => {
-        setShowWin(false)
-        setShowConfetti(false)
-      }, 3500)
     }
-  }, [gameState, sound])
+    prevHandRef.current = handInProgress
+  }, [gameState])
 
-  // ── Timer with sound + haptic ──
-
+  // ── Turn timer ──────────────────────────────────────────────────────────────
   useEffect(() => {
-    if (!gameState?.hand_in_progress || gameState.current_player !== userId) {
-      return
-    }
+    if (!gameState?.current_player) return
+    if (gameState.current_player !== userId) { setTimer(30); return }
     setTimer(30)
     const interval = setInterval(() => {
       setTimer((t) => {
-        if (t <= 0) {
-          clearInterval(interval)
-          return 0
-        }
+        if (t <= 1) { clearInterval(interval); return 0 }
         if (t <= 5) {
-          sound.timerWarning()
-          // Telegram haptic feedback
+          sound.timerTick()
           try { tg?.HapticFeedback?.impactOccurred?.('heavy') } catch {}
         } else if (t <= 10) {
           sound.timerTick()
@@ -142,12 +123,10 @@ export default function TableRoom() {
   }, [gameState?.current_player, userId])
 
   const handleAction = (action: string, amount?: number) => {
-    // Play action sound
     if (action === 'fold') sound.fold()
     else if (action === 'check') sound.check()
     else if (action === 'call' || action === 'bet' || action === 'raise') sound.chipClick()
     else if (action === 'all_in') sound.allIn()
-
     send({ type: 'action', action, amount: amount ?? 0 })
   }
 
@@ -159,15 +138,10 @@ export default function TableRoom() {
   const myPlayer = players.find((p: any) => p.user_id === userId)
   const showDemo = !gameState
 
-  // Determine community card animation type based on count
-  const getCommunityCardDelay = (index: number): number => {
-    if (communityCards.length <= 3) {
-      // Flop: stagger 3 cards
-      return index * 0.2
-    }
-    if (index < 3) return 0 // Already shown
-    return 0.1 // Turn/river: quick flip
-  }
+  // Dealer / SB / BB seat indices from game state
+  const dealerSeat: number | null = gameState?.dealer_seat ?? null
+  const sbSeat: number | null = gameState?.sb_seat ?? null
+  const bbSeat: number | null = gameState?.bb_seat ?? null
 
   return (
     <div className="min-h-screen flex flex-col bg-poker-darker">
@@ -176,28 +150,49 @@ export default function TableRoom() {
         <button onClick={() => navigate('/tables')} className="text-gray-400 text-sm">
           ← Назад
         </button>
-        <span className="text-sm font-medium">
-          Стол #{tableId}
-        </span>
+        <span className="text-sm font-medium">Стол #{tableId}</span>
         <span className="text-xs text-gray-500">
           {gameState?.street?.toUpperCase() || 'WAITING'}
         </span>
       </div>
 
+      {/* Double wallet bar */}
+      <div className="flex gap-2 px-4 py-2 bg-black/40 border-b border-poker-border/30">
+        <div className="flex items-center gap-1.5 bg-poker-gold/10 border border-poker-gold/20 rounded-lg px-3 py-1.5 flex-1">
+          <span className="text-poker-gold text-sm">💰</span>
+          <div>
+            <div className="text-[9px] text-gray-500 leading-none">Real RR</div>
+            <div className="text-xs font-bold text-poker-gold leading-none">
+              {(storeUser?.balance ?? 0).toLocaleString()}
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center gap-1.5 bg-blue-500/10 border border-blue-500/20 rounded-lg px-3 py-1.5 flex-1">
+          <span className="text-blue-400 text-sm">🎁</span>
+          <div>
+            <div className="text-[9px] text-gray-500 leading-none">Bonus RR</div>
+            <div className="text-xs font-bold text-blue-400 leading-none">
+              {(storeUser?.fun_balance ?? 0).toLocaleString()}
+            </div>
+          </div>
+        </div>
+        {myPlayer && (
+          <div className="flex items-center gap-1.5 bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 flex-1">
+            <span className="text-gray-400 text-sm">🪙</span>
+            <div>
+              <div className="text-[9px] text-gray-500 leading-none">За столом</div>
+              <div className="text-xs font-bold text-white leading-none">
+                {Number(myPlayer.stack ?? 0).toLocaleString()}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* Table area */}
       <div className="flex-1 relative overflow-hidden">
-        {/* Confetti layer */}
         <Confetti active={showConfetti} duration={3000} />
-
-        {/* Win overlay */}
-        <WinOverlay
-          show={showWin}
-          winnerName={winInfo.name}
-          amount={winInfo.amount}
-          handRank={winInfo.handRank}
-        />
-
-        {/* Chip animations */}
+        <WinOverlay show={showWin} winnerName={winInfo.name} amount={winInfo.amount} handRank={winInfo.handRank} />
         <ChipAnimation chips={flyingChips} onComplete={() => setFlyingChips([])} />
 
         {/* Felt table */}
@@ -216,22 +211,16 @@ export default function TableRoom() {
                   className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-10"
                 >
                   <motion.div
-                    animate={showWin ? {
-                      scale: [1, 1.2, 0.8, 0],
-                      opacity: [1, 1, 0.5, 0],
-                    } : { scale: 1 }}
+                    animate={showWin ? { scale: [1, 1.2, 0.8, 0], opacity: [1, 1, 0.5, 0] } : { scale: 1 }}
                     transition={{ duration: 0.6 }}
                     className="bg-black/60 backdrop-blur-sm px-4 py-2 rounded-full border border-poker-gold/30"
                   >
-                    {/* Mini chip stack icon */}
                     <div className="flex items-center gap-2">
                       <div className="relative">
                         <div className="w-4 h-4 rounded-full bg-gradient-to-br from-poker-gold to-yellow-600 border border-white/30" />
                         <div className="w-4 h-4 rounded-full bg-gradient-to-br from-red-500 to-red-700 border border-white/30 absolute -top-1 -left-0.5" />
                       </div>
-                      <span className="text-poker-gold font-bold text-sm">
-                        {pot.toFixed(0)} RR
-                      </span>
+                      <span className="text-poker-gold font-bold text-sm">{pot.toFixed(0)} RR</span>
                     </div>
                   </motion.div>
                 </motion.div>
@@ -241,92 +230,75 @@ export default function TableRoom() {
             {/* Community cards */}
             <div className="absolute top-[38%] left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
               <AnimatePresence>
-                {communityCards.map((card: any, i: number) => {
-                  const isFlop = i < 3 && communityCards.length >= 3
-                  const isTurnRiver = i >= 3
-
-                  return (
-                    <motion.div
-                      key={`cc-${i}-${card.rank}-${card.suit}`}
-                      initial={
-                        isFlop
-                          ? { y: -50, opacity: 0, rotateY: 180, scale: 0.5 }
-                          : isTurnRiver
-                          ? { y: 0, opacity: 0, rotateY: 180, scale: 0.8 }
-                          : { y: -30, opacity: 0, rotateY: 180 }
-                      }
-                      animate={{ y: 0, opacity: 1, rotateY: 0, scale: 1 }}
-                      transition={
-                        isFlop
-                          ? {
-                              delay: i * 0.2,
-                              type: 'spring',
-                              stiffness: 300,
-                              damping: 15,
-                            }
-                          : isTurnRiver
-                          ? {
-                              duration: 0.6,
-                              ease: [0.16, 1, 0.3, 1],
-                            }
-                          : { delay: i * 0.15 }
-                      }
-                    >
-                      <PlayingCard
-                        rank={card.rank}
-                        suit={card.suit}
-                        small
-                        dealFrom="none"
-                      />
-                    </motion.div>
-                  )
-                })}
+                {communityCards.map((card: any, i: number) => (
+                  <motion.div
+                    key={`cc-${i}-${card.rank}-${card.suit}`}
+                    initial={{ y: -50, opacity: 0, rotateY: 180, scale: 0.5 }}
+                    animate={{ y: 0, opacity: 1, rotateY: 0, scale: 1 }}
+                    transition={{ delay: i < 3 ? i * 0.2 : 0.1, type: 'spring', stiffness: 300, damping: 15 }}
+                  >
+                    <PlayingCard rank={card.rank} suit={card.suit} small dealFrom="none" />
+                  </motion.div>
+                ))}
               </AnimatePresence>
-              {/* Placeholder slots */}
               {Array.from({ length: Math.max(0, 5 - communityCards.length) }).map((_, i) => (
-                <div
-                  key={`empty-${i}`}
-                  className="w-10 h-14 rounded-lg border border-dashed border-green-700/30"
-                />
+                <div key={`empty-${i}`} className="w-10 h-14 rounded-lg border border-dashed border-green-700/30" />
               ))}
             </div>
 
             {/* Player seats */}
-            {players.map((player: any) => (
-              <PlayerSeat
-                key={player.seat}
-                player={player}
-                isCurrentTurn={player.user_id === currentPlayer}
-                isMe={player.user_id === userId}
-                position={SEAT_POSITIONS[player.seat] || SEAT_POSITIONS[0]}
-              />
+            {players.map((player: any) => {
+              const seat = player.seat
+              const isDealer = dealerSeat === seat
+              const isSB = sbSeat === seat
+              const isBB = bbSeat === seat
+              return (
+                <div key={seat} className="absolute" style={{ left: SEAT_POSITIONS[seat]?.x, top: SEAT_POSITIONS[seat]?.y, transform: 'translate(-50%, -50%)' }}>
+                  {/* Dealer / SB / BB badges */}
+                  <div className="relative">
+                    {isDealer && (
+                      <div className="absolute -top-4 left-1/2 -translate-x-1/2 w-6 h-6 rounded-full bg-white text-black text-[10px] font-black flex items-center justify-center border-2 border-poker-gold z-30 shadow-gold">
+                        D
+                      </div>
+                    )}
+                    {isSB && !isDealer && (
+                      <div className="absolute -top-4 left-1/2 -translate-x-1/2 w-6 h-6 rounded-full bg-blue-600 text-white text-[9px] font-black flex items-center justify-center border border-blue-400 z-30">
+                        SB
+                      </div>
+                    )}
+                    {isBB && !isDealer && (
+                      <div className="absolute -top-4 left-1/2 -translate-x-1/2 w-6 h-6 rounded-full bg-red-600 text-white text-[9px] font-black flex items-center justify-center border border-red-400 z-30">
+                        BB
+                      </div>
+                    )}
+                    <PlayerSeat
+                      player={player}
+                      isCurrentTurn={player.user_id === currentPlayer}
+                      isMe={player.user_id === userId}
+                      position={{ x: '0', y: '0' }}
+                    />
+                  </div>
+                </div>
+              )
+            })}
+
+            {/* Demo empty seats */}
+            {showDemo && [0, 2, 4, 6, 8].map((seat) => (
+              <motion.div
+                key={seat}
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ delay: seat * 0.05 }}
+                className="absolute"
+                style={{ left: SEAT_POSITIONS[seat].x, top: SEAT_POSITIONS[seat].y, transform: 'translate(-50%, -50%)' }}
+              >
+                <div className="w-16 h-16 rounded-full border-2 border-dashed border-poker-border/50 flex items-center justify-center">
+                  <span className="text-gray-600 text-xs">Место {seat + 1}</span>
+                </div>
+              </motion.div>
             ))}
 
-            {/* Demo seats */}
-            {showDemo && (
-              <>
-                {[0, 2, 4, 6, 8].map((seat) => (
-                  <motion.div
-                    key={seat}
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    transition={{ delay: seat * 0.05 }}
-                    className="absolute"
-                    style={{
-                      left: SEAT_POSITIONS[seat].x,
-                      top: SEAT_POSITIONS[seat].y,
-                      transform: 'translate(-50%, -50%)',
-                    }}
-                  >
-                    <div className="w-16 h-16 rounded-full border-2 border-dashed border-poker-border/50 flex items-center justify-center">
-                      <span className="text-gray-600 text-xs">Seat {seat + 1}</span>
-                    </div>
-                  </motion.div>
-                ))}
-              </>
-            )}
-
-            {/* Turn timer with pulse effect */}
+            {/* Turn timer */}
             <AnimatePresence>
               {isMyTurn && (
                 <motion.div
@@ -338,22 +310,14 @@ export default function TableRoom() {
                   <motion.div
                     animate={timer <= 5 ? {
                       scale: [1, 1.15, 1],
-                      boxShadow: [
-                        '0 0 0px rgba(239,68,68,0)',
-                        '0 0 30px rgba(239,68,68,0.6)',
-                        '0 0 0px rgba(239,68,68,0)',
-                      ],
+                      boxShadow: ['0 0 0px rgba(239,68,68,0)', '0 0 30px rgba(239,68,68,0.6)', '0 0 0px rgba(239,68,68,0)'],
                     } : {}}
                     transition={timer <= 5 ? { repeat: Infinity, duration: 0.8 } : {}}
-                    className={`
-                      w-14 h-14 rounded-full border-4 flex items-center justify-center font-bold text-xl
-                      ${timer <= 5
-                        ? 'border-red-500 text-red-400 bg-red-950/50'
-                        : timer <= 15
-                        ? 'border-yellow-500 text-yellow-400 bg-yellow-950/30'
-                        : 'border-poker-gold text-poker-gold bg-poker-darker/50'
-                      }
-                    `}
+                    className={`w-14 h-14 rounded-full border-4 flex items-center justify-center font-bold text-xl ${
+                      timer <= 5 ? 'border-red-500 text-red-400 bg-red-950/50'
+                      : timer <= 15 ? 'border-yellow-500 text-yellow-400 bg-yellow-950/30'
+                      : 'border-poker-gold text-poker-gold bg-poker-darker/50'
+                    }`}
                   >
                     {timer}
                   </motion.div>

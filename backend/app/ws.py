@@ -28,15 +28,28 @@ class ConnectionManager:
                 del self._connections[table_id]
         logger.info(f"WS disconnected: user={user_id} table={table_id}")
 
-    async def broadcast_to_table(self, table_id: int, state: dict):
-        """Send game state to all connected players at a table."""
+    async def broadcast_to_table(
+        self,
+        table_id: int,
+        state: dict,
+        engine=None,
+    ):
+        """Send personalized game state to each connected player.
+
+        When an engine is provided, each player receives a state where only
+        their own hole cards are revealed. Without an engine the raw state is
+        sent (used for non-hand broadcasts like seat updates).
+        """
         connections = self._connections.get(table_id, {})
         disconnected = []
 
         for user_id, ws in connections.items():
             try:
-                # Send personalized state (each player sees own cards)
-                personalized = dict(state)
+                if engine is not None:
+                    # Each player gets their own personalised view
+                    personalized = engine.get_state(for_user_id=user_id)
+                else:
+                    personalized = dict(state)
                 personalized["your_user_id"] = user_id
                 await ws.send_json(personalized)
             except Exception:

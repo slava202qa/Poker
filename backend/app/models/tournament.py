@@ -42,6 +42,12 @@ class TournamentPlayer(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True, nullable=False)
     finish_position: Mapped[int | None] = mapped_column(Integer, nullable=True)
     prize_won: Mapped[float] = mapped_column(Numeric(18, 4), default=0)
+    # In-tournament chip stack (separate from cash balance)
+    tournament_stack: Mapped[float] = mapped_column(Numeric(18, 4), default=0)
+    is_eliminated: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Current table/seat assignment during the tournament
+    table_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    seat: Mapped[int | None] = mapped_column(Integer, nullable=True)
     registered_at: Mapped[datetime.datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )

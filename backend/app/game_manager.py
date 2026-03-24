@@ -26,7 +26,9 @@ HAND_RESTART_DELAY = 5.0  # seconds between hands
 
 
 async def _broadcast(table_id: int, state: dict):
-    await ws_manager.broadcast_to_table(table_id, state)
+    """Broadcast personalised state to all players at the table."""
+    engine = _engines.get(table_id)
+    await ws_manager.broadcast_to_table(table_id, state, engine=engine)
 
 
 def get_engine(table_id: int) -> GameEngine | None:
@@ -65,6 +67,7 @@ async def _on_hand_end(table_id: int, rake_amount: float, winners: list[dict]):
         await _sync_stacks_to_db(table_id, engine)
     if rake_amount > 0:
         await _record_rake(table_id, rake_amount)
+    await _update_player_stats(table_id, winners)
     _schedule_next_hand(table_id)
 
 
@@ -276,3 +279,85 @@ async def _record_rake(table_id: int, rake_amount: float):
             logger.info(f"Rake recorded: {rake_amount:.4f} from table {table_id}")
     except Exception as e:
         logger.error(f"Failed to record rake for table {table_id}: {e}")
+
+
+async def _update_player_stats(table_id: int, winners: list[dict]):
+    """Update PlayerStats for all participants after a hand ends.
+
+    winners: list of {user_id, amount, hand_rank, no_showdown}
+    All seated players get hands_played++; winners get hands_won++ etc.
+    Achievement conditions are re-evaluated after the update.
+    """
+    from sqlalchemy import select
+    from app.models.shop import PlayerStats
+    from app.api.achievements import check_and_award
+
+    engine = _engines.get(table_id)
+    if not engine:
+        return
+
+    winner_ids = {w["user_id"] for w in winners}
+    winner_map = {w["user_id"]: w for w in winners}
+
+    try:
+        async with async_session() as session:
+            for uid in list(engine.players.keys()):
+                result = await session.execute(
+                    select(PlayerStats).where(PlayerStats.user_id == uid)
+                )
+                stats = result.scalar_one_or_none()
+                if stats is None:
+                    stats = PlayerStats(user_id=uid)
+                    session.add(stats)
+                    await session.flush()
+
+                stats.hands_played = (stats.hands_played or 0) + 1
+
+                if uid in winner_ids:
+                    w = winner_map[uid]
+                    stats.hands_won = (stats.hands_won or 0) + 1
+                    amount = float(w.get("amount", 0))
+                    stats.total_chips_won = float(stats.total_chips_won or 0) + amount
+                    if amount > float(stats.biggest_pot_won or 0):
+                        stats.biggest_pot_won = amount
+
+                    if w.get("no_showdown"):
+                        stats.hands_won_no_showdown = (stats.hands_won_no_showdown or 0) + 1
+
+                    hand_rank = w.get("hand_rank", "")
+                    if hand_rank:
+                        # Track best hand (simple rank ordering)
+                        _HAND_ORDER = [
+                            "High Card", "One Pair", "Two Pair", "Three of a Kind",
+                            "Straight", "Flush", "Full House", "Four of a Kind",
+                            "Straight Flush", "Royal Flush",
+                        ]
+                        current_best = stats.best_hand or ""
+                        curr_idx = _HAND_ORDER.index(current_best) if current_best in _HAND_ORDER else -1
+                        new_idx = _HAND_ORDER.index(hand_rank) if hand_rank in _HAND_ORDER else -1
+                        if new_idx > curr_idx:
+                            stats.best_hand = hand_rank
+
+                # XP per hand played + win bonus
+                _XP_HAND = 15
+                _XP_WIN  = 25
+                xp_gain = _XP_HAND + (_XP_WIN if uid in winner_ids else 0)
+                stats.xp = (stats.xp or 0) + xp_gain
+                from app.api.achievements import _calc_level
+                stats.level = _calc_level(stats.xp)
+
+                # Battle pass XP
+                from app.api.battlepass import grant_xp as bp_grant_xp
+                await bp_grant_xp(uid, xp_gain, session)
+
+            await session.flush()
+
+            # Check achievements for all participants
+            for uid in list(engine.players.keys()):
+                newly = await check_and_award(uid, session)
+                if newly:
+                    logger.info(f"User {uid} unlocked achievements: {newly}")
+
+            await session.commit()
+    except Exception as e:
+        logger.error(f"Failed to update player stats for table {table_id}: {e}")
