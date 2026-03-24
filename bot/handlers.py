@@ -1,7 +1,7 @@
 import logging
 import os
 from aiogram import Router
-from aiogram.types import Message, FSInputFile
+from aiogram.types import Message, FSInputFile, ReplyKeyboardRemove
 from aiogram.filters import CommandStart, Command
 from aiogram.fsm.context import FSMContext
 from keyboards import get_main_keyboard, get_webapp_button, get_admin_button, ADMIN_IDS
@@ -20,7 +20,6 @@ WELCOME_TEXT = (
     "• Участие в ежедневных турнирах\n"
     "• Управление Клубными Активами\n"
     "• Доступ к VIP-залам\n\n"
-    "💳 Управление балансом и обмен наград — внутри приложения.\n\n"
     "👇 Нажми <b>♠️ ВХОД В ЗАЛ</b>, чтобы начать игру."
 )
 
@@ -28,6 +27,18 @@ WELCOME_TEXT = (
 @router.message(CommandStart())
 async def cmd_start(message: Message, state: FSMContext):
     await state.clear()
+
+    # Step 1: remove any old keyboard (купить/продать/etc) for ALL users
+    await message.answer("...", reply_markup=ReplyKeyboardRemove())
+
+    # Step 2: delete that placeholder message immediately
+    try:
+        from aiogram.exceptions import TelegramBadRequest
+        pass
+    except Exception:
+        pass
+
+    # Step 3: send banner + new clean keyboard
     kb = get_main_keyboard(message.from_user.id)
     if os.path.exists(BANNER_PATH):
         await message.answer_photo(
@@ -56,7 +67,7 @@ async def cmd_admin(message: Message):
 async def cmd_help(message: Message):
     await message.answer(
         "♠️ <b>Royal Roll Club</b>\n\n"
-        "Нажмите <b>ВХОД В ЗАЛ</b> для входа в приложение.\n\n"
+        "Нажмите <b>♠️ ВХОД В ЗАЛ</b> для входа в приложение.\n\n"
         "Все функции доступны внутри Mini App:\n"
         "• Игра за столами\n"
         "• Турниры\n"
