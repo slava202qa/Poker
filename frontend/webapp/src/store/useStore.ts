@@ -20,6 +20,9 @@ interface GameState {
   current_player: number | null
   players: any[]
   hand_in_progress: boolean
+  dealer_seat: number | null
+  sb_seat: number | null
+  bb_seat: number | null
 }
 
 interface AppState {

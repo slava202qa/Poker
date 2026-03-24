@@ -18,7 +18,7 @@ interface ProfileData {
   tournaments_won: number
   all_ins_won: number
   xp: number
-  level: int
+  level: number
   login_streak: number
 }
 

@@ -73,7 +73,8 @@ export default function TableRoom() {
     const pot = gameState.pot ?? 0
     const prevPot = prevPotRef.current
     if (pot > prevPot && prevPot > 0) {
-      const chips = createBetChips(pot - prevPot)
+      // Animate from rough player area toward center pot
+      const chips = createBetChips(50, 300, 180, 200, 5)
       setFlyingChips(chips)
     }
     prevPotRef.current = pot
@@ -93,7 +94,7 @@ export default function TableRoom() {
         if (isMe) {
           setShowConfetti(true)
           sound.win()
-          const winChips = createWinChips(winner.last_win)
+          const winChips = createWinChips(180, 200, 50, 300, 8)
           setFlyingChips(winChips)
         }
         setTimeout(() => { setShowWin(false); setShowConfetti(false) }, 3500)
