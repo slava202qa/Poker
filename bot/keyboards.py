@@ -7,15 +7,17 @@ from aiogram.types import (
 )
 from config import get_bot_settings
 
+ADMIN_IDS = {7157045158}
 
-def get_main_keyboard() -> ReplyKeyboardMarkup:
+
+def get_main_keyboard(user_id: int = 0) -> ReplyKeyboardMarkup:
     settings = get_bot_settings()
     rows = []
 
-    # WebApp button only works with HTTPS
+    # Play button (WebApp)
     if settings.webapp_url.startswith("https://"):
         rows.append([KeyboardButton(
-            text="🎮 Играть",
+            text="🎰 Играть",
             web_app=WebAppInfo(url=settings.webapp_url),
         )])
 
@@ -27,6 +29,13 @@ def get_main_keyboard() -> ReplyKeyboardMarkup:
         KeyboardButton(text="💎 Баланс"),
         KeyboardButton(text="👤 Профиль"),
     ])
+
+    # Admin button — only for admins
+    if user_id in ADMIN_IDS and settings.webapp_url.startswith("https://"):
+        rows.append([KeyboardButton(
+            text="⚙️ Админ панель",
+            web_app=WebAppInfo(url=f"{settings.webapp_url}/admin"),
+        )])
 
     return ReplyKeyboardMarkup(keyboard=rows, resize_keyboard=True)
 
@@ -48,6 +57,16 @@ def get_webapp_button() -> InlineKeyboardMarkup:
     ])
 
 
+def get_admin_button() -> InlineKeyboardMarkup:
+    settings = get_bot_settings()
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(
+            text="⚙️ Открыть админ панель",
+            web_app=WebAppInfo(url=f"{settings.webapp_url}/admin"),
+        )],
+    ])
+
+
 # ── Buy keyboards ──
 
 def get_buy_currency_kb() -> InlineKeyboardMarkup:
@@ -61,7 +80,6 @@ def get_buy_currency_kb() -> InlineKeyboardMarkup:
 
 
 def get_buy_amount_kb(currency: str, rate: float) -> InlineKeyboardMarkup:
-    """Preset buy amounts."""
     presets = [
         (rate * 5, 5),
         (rate * 10, 10),
@@ -95,7 +113,6 @@ def get_sell_currency_kb() -> InlineKeyboardMarkup:
 def get_sell_amount_kb(currency: str, rate: float, balance: float) -> InlineKeyboardMarkup:
     symbol = "TON" if currency == "ton" else "USDT"
     rows = []
-
     presets_rr = [rr for rr in [rate * 5, rate * 10, rate * 20] if rr <= balance]
     for rr in presets_rr:
         crypto = rr / rate
@@ -103,15 +120,12 @@ def get_sell_amount_kb(currency: str, rate: float, balance: float) -> InlineKeyb
             text=f"{rr:,.0f} RR → {crypto:.2f} {symbol}",
             callback_data=f"sell_amount:{rr:.0f}:{crypto:.4f}",
         )])
-
-    # "Sell all" option
     if balance >= 10:
         crypto_all = balance / rate
         rows.append([InlineKeyboardButton(
             text=f"Всё: {balance:,.0f} RR → {crypto_all:.4f} {symbol}",
             callback_data=f"sell_amount:{balance:.0f}:{crypto_all:.4f}",
         )])
-
     rows.append([InlineKeyboardButton(text="✏️ Ввести свою сумму RR", callback_data="sell_custom")])
     rows.append([InlineKeyboardButton(text="❌ Отмена", callback_data="cancel")])
     return InlineKeyboardMarkup(inline_keyboard=rows)

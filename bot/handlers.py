@@ -6,10 +6,10 @@ from aiogram.filters import CommandStart, Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from keyboards import (
-    get_main_keyboard, get_webapp_button,
+    get_main_keyboard, get_webapp_button, get_admin_button,
     get_buy_currency_kb, get_buy_amount_kb,
     get_sell_currency_kb, get_sell_amount_kb,
-    get_confirm_sell_kb,
+    get_confirm_sell_kb, ADMIN_IDS,
 )
 from config import get_bot_settings
 
@@ -83,7 +83,20 @@ async def cmd_start(message: Message, state: FSMContext):
         "📊 <b>/rates</b> — курсы обмена\n"
         "💎 <b>/balance</b> — ваш баланс\n\n"
         "Нажми <b>🎮 Играть</b> чтобы начать.",
-        reply_markup=get_main_keyboard(),
+        reply_markup=get_main_keyboard(message.from_user.id),
+    )
+
+
+# ── /admin ──
+
+@router.message(Command("admin"))
+async def cmd_admin(message: Message):
+    if message.from_user.id not in ADMIN_IDS:
+        await message.answer("⛔ Нет доступа.")
+        return
+    await message.answer(
+        "⚙️ <b>Админ панель</b>\n\nОткройте панель управления:",
+        reply_markup=get_admin_button(),
     )
 
 
