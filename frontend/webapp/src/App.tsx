@@ -11,6 +11,9 @@ import TableRoom from './pages/TableRoom'
 import Shop from './pages/Shop'
 import Profile from './pages/Profile'
 import AdminLayout from './pages/admin/AdminLayout'
+import AdminShop from './pages/admin/AdminShop'
+import AdminTransactions from './pages/admin/AdminTransactions'
+import AdminPlayers from './pages/admin/AdminPlayers'
 import Dashboard from './pages/admin/Dashboard'
 import AdminTables from './pages/admin/AdminTables'
 import AdminTournaments from './pages/admin/AdminTournaments'
@@ -70,7 +73,10 @@ export default function App() {
           <Route path="tables" element={<AdminTables />} />
           <Route path="tournaments" element={<AdminTournaments />} />
           <Route path="users" element={<AdminUsers />} />
-          <Route path="withdrawals" element={<AdminWithdrawals />} />
+          <Route path="withdrawals"  element={<AdminWithdrawals />} />
+          <Route path="shop"         element={<AdminShop />} />
+          <Route path="transactions" element={<AdminTransactions />} />
+          <Route path="players"      element={<AdminPlayers />} />
         </Route>
       </Routes>
       <BottomNav />

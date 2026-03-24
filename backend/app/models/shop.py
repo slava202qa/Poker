@@ -31,7 +31,8 @@ class ShopItem(Base):
     item_type: Mapped[ItemType] = mapped_column(Enum(ItemType), nullable=False)
     rarity: Mapped[ItemRarity] = mapped_column(Enum(ItemRarity), default=ItemRarity.COMMON)
     price: Mapped[float] = mapped_column(Numeric(18, 4), nullable=False, default=0)
-    icon: Mapped[str] = mapped_column(String(16), nullable=True)   # emoji
+    icon: Mapped[str] = mapped_column(String(16), nullable=True)        # emoji fallback
+    image_url: Mapped[str] = mapped_column(String(512), nullable=True)  # uploaded image
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     # For VIP: duration in days (0 = permanent)
     vip_days: Mapped[int] = mapped_column(Integer, default=0)

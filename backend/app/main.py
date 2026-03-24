@@ -3,8 +3,10 @@ import asyncio
 import json
 import logging
 from contextlib import asynccontextmanager
+import os
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.config import get_settings
 from app.database import engine, Base, async_session
@@ -68,6 +70,11 @@ app.add_middleware(
 )
 
 app.include_router(api_router)
+
+# Serve uploaded images
+_upload_dir = "/app/uploads"
+os.makedirs(_upload_dir, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=_upload_dir), name="uploads")
 
 
 @app.get("/health")

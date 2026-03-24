@@ -3,7 +3,10 @@ Admin API: table/tournament CRUD, user management, statistics.
 Protected by Telegram ID whitelist (ADMIN_IDS in .env).
 """
 import datetime
-from fastapi import APIRouter, Depends, HTTPException
+import os
+import uuid
+import shutil
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from pydantic import BaseModel
 from sqlalchemy import select, func, delete
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -14,6 +17,10 @@ from app.models.user import User
 from app.models.balance import Balance, Transaction, TxType
 from app.models.table import PokerTable, TablePlayer, TableStatus
 from app.models.tournament import Tournament, TournamentPlayer, TournamentStatus
+from app.models.shop import ShopItem, ItemType, ItemRarity
+
+UPLOAD_DIR = "/app/uploads"
+os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -596,3 +603,245 @@ async def _process_withdrawal(tx_id: int, db: AsyncSession, approve: bool) -> di
         await db.commit()
         return {"status": "approved_manual", "tx_id": tx_id, "tx_hash": None,
                 "note": "TON mnemonics not configured — send manually"}
+
+
+# ── Shop Items CRUD ───────────────────────────────────────────────────────────
+
+class ShopItemOut(BaseModel):
+    id: int
+    item_key: str
+    name: str
+    description: str | None
+    item_type: str
+    rarity: str
+    price: float
+    icon: str | None
+    image_url: str | None
+    vip_days: int
+    is_active: bool
+    created_at: str
+
+
+@router.get("/shop/items", response_model=list[ShopItemOut])
+async def admin_list_shop_items(
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    result = await db.execute(select(ShopItem).order_by(ShopItem.created_at.desc()))
+    items = result.scalars().all()
+    return [ShopItemOut(
+        id=i.id, item_key=i.item_key, name=i.name, description=i.description,
+        item_type=i.item_type.value, rarity=i.rarity.value, price=float(i.price),
+        icon=i.icon, image_url=i.image_url, vip_days=i.vip_days,
+        is_active=i.is_active, created_at=i.created_at.isoformat(),
+    ) for i in items]
+
+
+@router.post("/shop/items", response_model=ShopItemOut)
+async def admin_create_shop_item(
+    name: str = Form(...),
+    item_key: str = Form(...),
+    item_type: str = Form(...),
+    rarity: str = Form("common"),
+    price: float = Form(0),
+    description: str = Form(""),
+    icon: str = Form("🎁"),
+    vip_days: int = Form(0),
+    image: UploadFile | None = File(None),
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    # Check duplicate key
+    existing = await db.execute(select(ShopItem).where(ShopItem.item_key == item_key))
+    if existing.scalar_one_or_none():
+        raise HTTPException(status_code=400, detail="item_key already exists")
+
+    image_url = None
+    if image and image.filename:
+        ext = os.path.splitext(image.filename)[1].lower()
+        if ext not in ('.jpg', '.jpeg', '.png', '.gif', '.webp'):
+            raise HTTPException(status_code=400, detail="Only jpg/png/gif/webp allowed")
+        fname = f"{uuid.uuid4().hex}{ext}"
+        fpath = os.path.join(UPLOAD_DIR, fname)
+        with open(fpath, "wb") as f:
+            shutil.copyfileobj(image.file, f)
+        image_url = f"/uploads/{fname}"
+
+    item = ShopItem(
+        item_key=item_key, name=name,
+        description=description or None,
+        item_type=ItemType(item_type),
+        rarity=ItemRarity(rarity),
+        price=price, icon=icon or None,
+        image_url=image_url,
+        vip_days=vip_days, is_active=True,
+    )
+    db.add(item)
+    await db.flush()
+    await db.refresh(item)
+    return ShopItemOut(
+        id=item.id, item_key=item.item_key, name=item.name,
+        description=item.description, item_type=item.item_type.value,
+        rarity=item.rarity.value, price=float(item.price),
+        icon=item.icon, image_url=item.image_url, vip_days=item.vip_days,
+        is_active=item.is_active, created_at=item.created_at.isoformat(),
+    )
+
+
+@router.put("/shop/items/{item_id}")
+async def admin_update_shop_item(
+    item_id: int,
+    name: str = Form(None),
+    price: float = Form(None),
+    description: str = Form(None),
+    icon: str = Form(None),
+    is_active: bool = Form(None),
+    image: UploadFile | None = File(None),
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    result = await db.execute(select(ShopItem).where(ShopItem.id == item_id))
+    item = result.scalar_one_or_none()
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+
+    if name is not None: item.name = name
+    if price is not None: item.price = price
+    if description is not None: item.description = description
+    if icon is not None: item.icon = icon
+    if is_active is not None: item.is_active = is_active
+
+    if image and image.filename:
+        ext = os.path.splitext(image.filename)[1].lower()
+        if ext not in ('.jpg', '.jpeg', '.png', '.gif', '.webp'):
+            raise HTTPException(status_code=400, detail="Only jpg/png/gif/webp allowed")
+        fname = f"{uuid.uuid4().hex}{ext}"
+        fpath = os.path.join(UPLOAD_DIR, fname)
+        with open(fpath, "wb") as f:
+            shutil.copyfileobj(image.file, f)
+        item.image_url = f"/uploads/{fname}"
+
+    await db.flush()
+    return {"status": "updated", "id": item_id}
+
+
+@router.delete("/shop/items/{item_id}")
+async def admin_delete_shop_item(
+    item_id: int,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    result = await db.execute(select(ShopItem).where(ShopItem.id == item_id))
+    item = result.scalar_one_or_none()
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+    await db.delete(item)
+    await db.flush()
+    return {"deleted": item_id}
+
+
+# ── All Transactions (admin view) ─────────────────────────────────────────────
+
+class AdminTxOut(BaseModel):
+    id: int
+    user_id: int
+    username: str | None
+    first_name: str
+    tx_type: str
+    amount: float
+    balance_after: float
+    reference: str | None
+    ton_tx_hash: str | None
+    created_at: str
+
+
+@router.get("/transactions", response_model=list[AdminTxOut])
+async def admin_transactions(
+    limit: int = 100,
+    offset: int = 0,
+    tx_type: str = "all",
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    q = select(Transaction, User).join(User, Transaction.user_id == User.id)
+    if tx_type != "all":
+        q = q.where(Transaction.tx_type == tx_type)
+    q = q.order_by(Transaction.created_at.desc()).limit(limit).offset(offset)
+    rows = (await db.execute(q)).all()
+    return [AdminTxOut(
+        id=tx.id, user_id=u.id, username=u.username, first_name=u.first_name,
+        tx_type=tx.tx_type.value, amount=float(tx.amount),
+        balance_after=float(tx.balance_after), reference=tx.reference,
+        ton_tx_hash=tx.ton_tx_hash, created_at=tx.created_at.isoformat(),
+    ) for tx, u in rows]
+
+
+# ── Player detail stats ───────────────────────────────────────────────────────
+
+class PlayerDetailOut(BaseModel):
+    user_id: int
+    telegram_id: int
+    username: str | None
+    first_name: str
+    balance: float
+    fun_balance: float
+    is_banned: bool
+    hands_played: int
+    hands_won: int
+    win_rate: float
+    total_chips_won: float
+    tournaments_played: int
+    xp: int
+    level: int
+    login_streak: int
+    tx_count: int
+    total_deposited: float
+    total_withdrawn: float
+    joined_at: str
+
+
+@router.get("/players/{user_id}/detail", response_model=PlayerDetailOut)
+async def admin_player_detail(
+    user_id: int,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    from app.models.shop import PlayerStats
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    stats_r = await db.execute(select(PlayerStats).where(PlayerStats.user_id == user_id))
+    stats = stats_r.scalar_one_or_none()
+
+    # Aggregate transactions
+    tx_r = await db.execute(
+        select(
+            func.count(Transaction.id),
+            func.coalesce(func.sum(Transaction.amount).filter(Transaction.amount > 0), 0),
+            func.coalesce(func.abs(func.sum(Transaction.amount)).filter(Transaction.amount < 0), 0),
+        ).where(Transaction.user_id == user_id)
+    )
+    tx_count, deposited, withdrawn = tx_r.one()
+
+    bal = user.balance
+    return PlayerDetailOut(
+        user_id=user.id, telegram_id=user.telegram_id,
+        username=user.username, first_name=user.first_name,
+        balance=float(bal.amount) if bal else 0,
+        fun_balance=float(bal.fun_amount) if bal else 0,
+        is_banned=user.is_banned,
+        hands_played=stats.hands_played if stats else 0,
+        hands_won=stats.hands_won if stats else 0,
+        win_rate=round(stats.hands_won / max(1, stats.hands_played) * 100, 1) if stats else 0,
+        total_chips_won=float(stats.total_chips_won) if stats else 0,
+        tournaments_played=stats.tournaments_played if stats else 0,
+        xp=stats.xp if stats else 0,
+        level=stats.level if stats else 1,
+        login_streak=stats.login_streak if stats else 0,
+        tx_count=int(tx_count),
+        total_deposited=float(deposited),
+        total_withdrawn=float(withdrawn),
+        joined_at=user.created_at.isoformat(),
+    )
