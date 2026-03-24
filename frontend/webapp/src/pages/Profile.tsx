@@ -1,4 +1,7 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
+
+const ADMIN_IDS = [7157045158]
 import { motion } from 'framer-motion'
 import { useTonAddress, useTonConnectUI } from '@tonconnect/ui-react'
 import { useTelegram } from '../hooks/useTelegram'
@@ -57,6 +60,7 @@ function xpForLevel(level: number) { return level * level * 100 }
 
 export default function Profile() {
   const { user: tgUser } = useTelegram()
+  const navigate = useNavigate()
   const user = useStore((s) => s.user)
   const address = useTonAddress()
   const [tonConnectUI] = useTonConnectUI()
@@ -197,6 +201,16 @@ export default function Profile() {
           )}
         </div>
       </motion.div>
+
+      {user && ADMIN_IDS.includes(user.telegram_id) && (
+        <button
+          onClick={() => navigate('/admin')}
+          className="w-full mb-4 rounded-2xl py-3 flex items-center justify-center gap-2 font-bold text-sm"
+          style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: '#f87171' }}
+        >
+          u2699ufe0f u0410u0434u043cu0438u043d u043fu0430u043du0435u043bu044c
+        </button>
+      )}
 
       {/* ── Tab switcher ── */}
       <div className="flex gap-1.5 mb-5 rounded-2xl p-1.5" style={{ background: 'rgba(255,255,255,0.03)' }}>
