@@ -1,100 +1,80 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useApi } from '../../hooks/useApi'
 
-interface Withdrawal {
+interface Transfer {
   id: number
   user_id: number
   username: string | null
   first_name: string
-  ton_wallet: string | null
-  amount: number
-  status: string
+  amount_rr: number
+  amount_crypto: number
+  currency: string
+  wallet_address: string
+  review_type: string   // auto | manual
+  status: string        // pending | approved | rejected
   ton_tx_hash: string | null
   created_at: string
 }
 
-const STATUS_COLORS: Record<string, string> = {
-  pending:         'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
-  approved:        'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
-  approved_manual: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
-  rejected:        'bg-red-500/20 text-red-400 border-red-500/30',
-}
-
-const STATUS_LABELS: Record<string, string> = {
-  pending:         'Ожидает',
-  approved:        'Отправлено',
-  approved_manual: 'Вручную',
-  rejected:        'Отклонено',
-}
+type Filter = 'pending' | 'approved' | 'rejected' | 'all'
 
 export default function AdminWithdrawals() {
   const { get, post } = useApi()
-  const [filter, setFilter] = useState<'pending' | 'approved' | 'rejected' | 'all'>('pending')
-  const [items, setItems] = useState<Withdrawal[]>([])
+  const [transfers, setTransfers] = useState<Transfer[]>([])
   const [loading, setLoading] = useState(true)
+  const [filter, setFilter] = useState<Filter>('pending')
+  const [processing, setProcessing] = useState<number | null>(null)
   const [selected, setSelected] = useState<Set<number>>(new Set())
-  const [processing, setProcessing] = useState<Set<number>>(new Set())
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null)
 
-  const load = useCallback(async () => {
+  const load = async () => {
     setLoading(true)
     try {
-      const data = await get<Withdrawal[]>(`/admin/withdrawals?status=${filter}&limit=100`)
-      setItems(data)
-      setSelected(new Set())
-    } catch (e) {
-      console.error(e)
-    } finally {
-      setLoading(false)
-    }
-  }, [filter, get])
+      const data = await get<Transfer[]>(`/admin/withdrawals?status=${filter}&limit=100`)
+      setTransfers(data)
+    } catch { setTransfers([]) }
+    finally { setLoading(false) }
+  }
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => { load() }, [filter])
 
   const showToast = (msg: string, ok: boolean) => {
     setToast({ msg, ok })
     setTimeout(() => setToast(null), 3000)
   }
 
-  const handleApprove = async (id: number) => {
-    setProcessing(p => new Set(p).add(id))
+  const approve = async (id: number) => {
+    setProcessing(id)
     try {
       const r = await post<any>(`/admin/withdrawals/${id}/approve`)
-      showToast(`#${id} — ${r.tx_hash ? 'Отправлено ✓' : 'Одобрено (вручную)'}`, true)
+      showToast(r.status === 'approved' ? `✅ Выплачено (${r.tx_hash?.slice(0,12) ?? 'manual'})` : '✅ Одобрено (ручная отправка)', true)
       await load()
-    } catch (e: any) {
-      showToast(`Ошибка: ${e.message}`, false)
-    } finally {
-      setProcessing(p => { const s = new Set(p); s.delete(id); return s })
-    }
+    } catch (e: any) { showToast(`❌ ${e?.message || 'Ошибка'}`, false) }
+    finally { setProcessing(null) }
   }
 
-  const handleReject = async (id: number) => {
-    if (!confirm('Отклонить и вернуть баланс?')) return
-    setProcessing(p => new Set(p).add(id))
+  const reject = async (id: number) => {
+    setProcessing(id)
     try {
-      await post(`/admin/withdrawals/${id}/reject`)
-      showToast(`#${id} — Отклонено, баланс возвращён`, true)
+      await post<any>(`/admin/withdrawals/${id}/reject`)
+      showToast('Отклонено, баланс возвращён', true)
       await load()
-    } catch (e: any) {
-      showToast(`Ошибка: ${e.message}`, false)
-    } finally {
-      setProcessing(p => { const s = new Set(p); s.delete(id); return s })
-    }
+    } catch (e: any) { showToast(`❌ ${e?.message || 'Ошибка'}`, false) }
+    finally { setProcessing(null) }
   }
 
-  const handleBulkApprove = async () => {
+  const bulkApprove = async () => {
     if (selected.size === 0) return
-    if (!confirm(`Одобрить ${selected.size} заявок?`)) return
+    setProcessing(-1)
     try {
-      const r = await post<any>('/admin/withdrawals/bulk-approve', { tx_ids: [...selected] })
-      const ok = r.results.filter((x: any) => x.status !== 'error').length
-      showToast(`Обработано ${ok}/${selected.size}`, true)
+      const r = await post<any>('/admin/withdrawals/bulk-approve', { tx_ids: Array.from(selected) })
+      const ok = r.results?.filter((x: any) => x.status !== 'error').length ?? 0
+      showToast(`✅ Одобрено ${ok}/${selected.size}`, true)
+      setSelected(new Set())
       await load()
-    } catch (e: any) {
-      showToast(`Ошибка: ${e.message}`, false)
-    }
+    } catch (e: any) { showToast(`❌ ${e?.message || 'Ошибка'}`, false) }
+    finally { setProcessing(null) }
   }
 
   const toggleSelect = (id: number) => {
@@ -105,179 +85,162 @@ export default function AdminWithdrawals() {
     })
   }
 
-  const toggleAll = () => {
-    const pending = items.filter(i => i.status === 'pending')
-    if (selected.size === pending.length) {
-      setSelected(new Set())
-    } else {
-      setSelected(new Set(pending.map(i => i.id)))
-    }
-  }
-
-  const pendingItems = items.filter(i => i.status === 'pending')
-  const totalPending = pendingItems.reduce((s, i) => s + i.amount, 0)
+  const pendingCount = transfers.filter(t => t.status === 'pending').length
 
   return (
-    <div className="space-y-4">
+    <div className="p-4 relative z-10">
       {/* Toast */}
       <AnimatePresence>
         {toast && (
-          <motion.div
-            initial={{ opacity: 0, y: -16 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -16 }}
-            className={`fixed top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-xl text-sm font-bold shadow-xl ${
-              toast.ok ? 'bg-emerald-600 text-white' : 'bg-red-600 text-white'
-            }`}
-          >
+          <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+            className="fixed top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-xl text-sm font-bold shadow-xl"
+            style={{ background: toast.ok ? '#16a34a' : '#dc2626', color: 'white', minWidth: 220, textAlign: 'center' }}>
             {toast.msg}
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between mb-4">
         <div>
-          <h2 className="text-lg font-bold">Заявки на обмен</h2>
-          {filter === 'pending' && pendingItems.length > 0 && (
-            <p className="text-xs text-gray-500 mt-0.5">
-              {pendingItems.length} заявок · {totalPending.toFixed(0)} RR
-            </p>
+          <h2 className="text-lg font-extrabold">Pending Transfers</h2>
+          {pendingCount > 0 && (
+            <span className="text-xs text-amber-400">{pendingCount} ожидают обработки</span>
           )}
         </div>
-        <button onClick={load} className="text-xs text-gray-500 hover:text-white transition-colors">
-          ↻ Обновить
-        </button>
+        {selected.size > 0 && (
+          <button onClick={bulkApprove} disabled={processing === -1}
+            className="btn-gold !py-2 !px-4 !text-xs !rounded-xl disabled:opacity-50">
+            {processing === -1 ? '...' : `✅ Одобрить ${selected.size}`}
+          </button>
+        )}
       </div>
 
       {/* Filter tabs */}
-      <div className="flex gap-1.5 bg-black/30 rounded-xl p-1">
-        {(['pending', 'approved', 'rejected', 'all'] as const).map(f => (
-          <button
-            key={f}
-            onClick={() => setFilter(f)}
-            className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${
-              filter === f ? 'bg-poker-card text-white' : 'text-gray-500 hover:text-gray-300'
-            }`}
-          >
-            {f === 'pending' ? 'Ожидают' : f === 'approved' ? 'Отправлены' : f === 'rejected' ? 'Отклонены' : 'Все'}
+      <div className="flex gap-1.5 mb-4 rounded-xl p-1" style={{ background: 'rgba(255,255,255,0.03)' }}>
+        {(['pending', 'approved', 'rejected', 'all'] as Filter[]).map((f) => (
+          <button key={f} onClick={() => setFilter(f)}
+            className="flex-1 py-1.5 rounded-lg text-[11px] font-bold transition-all"
+            style={filter === f
+              ? { background: '#1c1c1c', color: 'white', border: '1px solid rgba(255,255,255,0.08)' }
+              : { color: '#6b7280' }}>
+            {f === 'pending' ? 'Ожидание' : f === 'approved' ? 'Выплачено' : f === 'rejected' ? 'Отклонено' : 'Все'}
           </button>
         ))}
       </div>
 
-      {/* Bulk actions (only for pending) */}
-      {filter === 'pending' && pendingItems.length > 0 && (
-        <div className="flex items-center gap-2">
-          <button
-            onClick={toggleAll}
-            className="text-xs text-gray-400 hover:text-white transition-colors"
-          >
-            {selected.size === pendingItems.length ? 'Снять всё' : 'Выбрать все'}
-          </button>
-          {selected.size > 0 && (
-            <motion.button
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              onClick={handleBulkApprove}
-              className="ml-auto btn-gold !py-1.5 !px-4 !text-xs !rounded-lg"
-            >
-              ✓ Одобрить {selected.size} заявок
-            </motion.button>
-          )}
-        </div>
-      )}
-
-      {/* List */}
       {loading ? (
-        <div className="text-center text-gray-500 py-12">Загрузка...</div>
-      ) : items.length === 0 ? (
-        <div className="text-center text-gray-600 py-12">
-          {filter === 'pending' ? 'Нет заявок на обмен' : 'Нет записей'}
+        <div className="flex justify-center py-12">
+          <div className="w-7 h-7 border-2 border-poker-gold border-t-transparent rounded-full animate-spin" />
         </div>
+      ) : transfers.length === 0 ? (
+        <div className="text-center text-gray-600 py-12">Нет заявок</div>
       ) : (
-        <div className="space-y-2">
-          {items.map((item, i) => (
-            <motion.div
-              key={item.id}
-              initial={{ x: -8, opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              transition={{ delay: i * 0.03 }}
-              className={`card-surface p-4 border transition-all ${
-                selected.has(item.id) ? 'border-poker-gold/40' : 'border-transparent'
-              }`}
-            >
-              <div className="flex items-start gap-3">
-                {/* Checkbox (only for pending) */}
-                {item.status === 'pending' && (
-                  <button
-                    onClick={() => toggleSelect(item.id)}
-                    className={`mt-0.5 w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center transition-all ${
-                      selected.has(item.id)
-                        ? 'bg-poker-gold border-poker-gold'
-                        : 'border-gray-600 hover:border-gray-400'
-                    }`}
-                  >
-                    {selected.has(item.id) && <span className="text-black text-[10px] font-black">✓</span>}
-                  </button>
-                )}
-
-                {/* Info */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="font-bold text-sm">
-                      {item.first_name}
-                      {item.username && <span className="text-gray-500 font-normal"> @{item.username}</span>}
-                    </span>
-                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${STATUS_COLORS[item.status] ?? STATUS_COLORS.pending}`}>
-                      {STATUS_LABELS[item.status] ?? item.status}
-                    </span>
-                  </div>
-
-                  <div className="text-lg font-extrabold text-poker-gold mb-1">
-                    {item.amount.toLocaleString()} RR
-                  </div>
-
-                  {item.ton_wallet && (
-                    <div className="text-[10px] text-gray-500 font-mono truncate mb-1">
-                      → {item.ton_wallet}
-                    </div>
-                  )}
-
-                  {item.ton_tx_hash && (
-                    <div className="text-[10px] text-emerald-500 font-mono truncate">
-                      TX: {item.ton_tx_hash}
-                    </div>
-                  )}
-
-                  <div className="text-[10px] text-gray-600 mt-1">
-                    {new Date(item.created_at).toLocaleString('ru')} · #{item.id}
-                  </div>
-                </div>
-
-                {/* Actions */}
-                {item.status === 'pending' && (
-                  <div className="flex flex-col gap-1.5 flex-shrink-0">
-                    <button
-                      onClick={() => handleApprove(item.id)}
-                      disabled={processing.has(item.id)}
-                      className="btn-gold !py-1 !px-3 !text-xs !rounded-lg disabled:opacity-50 min-w-[72px]"
-                    >
-                      {processing.has(item.id) ? '...' : '✓ Отправить'}
-                    </button>
-                    <button
-                      onClick={() => handleReject(item.id)}
-                      disabled={processing.has(item.id)}
-                      className="bg-red-900/30 border border-red-500/30 text-red-400 text-xs py-1 px-3 rounded-lg font-bold hover:bg-red-900/50 transition-colors disabled:opacity-50"
-                    >
-                      ✕ Отклонить
-                    </button>
-                  </div>
-                )}
-              </div>
-            </motion.div>
+        <div className="space-y-3">
+          {transfers.map((t, i) => (
+            <TransferCard
+              key={t.id}
+              transfer={t}
+              index={i}
+              isSelected={selected.has(t.id)}
+              processing={processing === t.id}
+              onToggle={() => toggleSelect(t.id)}
+              onApprove={() => approve(t.id)}
+              onReject={() => reject(t.id)}
+            />
           ))}
         </div>
       )}
     </div>
+  )
+}
+
+function TransferCard({ transfer: t, index, isSelected, processing, onToggle, onApprove, onReject }: {
+  transfer: Transfer
+  index: number
+  isSelected: boolean
+  processing: boolean
+  onToggle: () => void
+  onApprove: () => void
+  onReject: () => void
+}) {
+  const isPending = t.status === 'pending'
+  const isManual = t.review_type === 'manual'
+
+  return (
+    <motion.div
+      initial={{ x: -12, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: index * 0.04 }}
+      className="rounded-2xl p-4"
+      style={{
+        background: '#1c1c1c',
+        border: `1px solid ${isSelected ? 'rgba(212,168,67,0.4)' : isManual && isPending ? 'rgba(234,179,8,0.2)' : 'rgba(255,255,255,0.07)'}`,
+      }}
+    >
+      {/* Top row */}
+      <div className="flex items-start justify-between mb-3">
+        <div className="flex items-center gap-2">
+          {isPending && (
+            <input type="checkbox" checked={isSelected} onChange={onToggle}
+              className="w-4 h-4 rounded accent-yellow-500 cursor-pointer" />
+          )}
+          <div>
+            <div className="font-bold text-sm">{t.first_name} {t.username ? `@${t.username}` : ''}</div>
+            <div className="text-[10px] text-gray-600">ID {t.user_id} · #{t.id}</div>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          {isManual && isPending && (
+            <span className="text-[9px] px-1.5 py-0.5 rounded font-bold"
+              style={{ background: 'rgba(234,179,8,0.12)', color: '#eab308', border: '1px solid rgba(234,179,8,0.2)' }}>
+              MANUAL
+            </span>
+          )}
+          <span className="text-[10px] px-2 py-1 rounded-full font-semibold"
+            style={{
+              background: t.status === 'approved' ? 'rgba(34,197,94,0.1)' : t.status === 'rejected' ? 'rgba(239,68,68,0.1)' : 'rgba(234,179,8,0.1)',
+              color: t.status === 'approved' ? '#4ade80' : t.status === 'rejected' ? '#f87171' : '#eab308',
+            }}>
+            {t.status === 'approved' ? '✓ Выплачено' : t.status === 'rejected' ? '✗ Отклонено' : '⏳ Ожидание'}
+          </span>
+        </div>
+      </div>
+
+      {/* Amount */}
+      <div className="rounded-xl p-3 mb-3 flex items-center justify-between"
+        style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}>
+        <div>
+          <div className="text-lg font-extrabold text-poker-gold">{t.amount_rr.toLocaleString()} RR</div>
+          <div className="text-xs text-gray-500">= {t.amount_crypto} {t.currency}</div>
+        </div>
+        <div className="text-right">
+          <div className="text-[10px] text-gray-600">Кошелёк</div>
+          <div className="text-xs font-mono text-gray-400 max-w-[120px] truncate">{t.wallet_address || '—'}</div>
+        </div>
+      </div>
+
+      {t.ton_tx_hash && (
+        <div className="text-[10px] text-emerald-400 mb-2 font-mono truncate">
+          TX: {t.ton_tx_hash}
+        </div>
+      )}
+
+      <div className="text-[10px] text-gray-700 mb-3">
+        {new Date(t.created_at).toLocaleString('ru-RU')}
+      </div>
+
+      {/* Actions */}
+      {isPending && (
+        <div className="flex gap-2">
+          <button onClick={onApprove} disabled={processing}
+            className="flex-1 btn-gold !py-2 !text-xs !rounded-xl disabled:opacity-50">
+            {processing ? '...' : isManual ? '✅ Одобрить (ручная)' : '✅ Выплатить'}
+          </button>
+          <button onClick={onReject} disabled={processing}
+            className="px-4 py-2 rounded-xl text-xs font-bold transition-all disabled:opacity-50"
+            style={{ background: 'rgba(239,68,68,0.1)', color: '#f87171', border: '1px solid rgba(239,68,68,0.2)' }}>
+            ✗ Отклонить
+          </button>
+        </div>
+      )}
+    </motion.div>
   )
 }

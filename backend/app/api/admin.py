@@ -412,14 +412,18 @@ async def admin_delete_tournament(
     return {"deleted": tournament_id}
 
 # ── Withdrawal requests ───────────────────────────────────────────────────────
+# reference format: "withdraw:{currency}:{amount_crypto}:{wallet}:{auto|manual}:{status}"
 
 class WithdrawalOut(BaseModel):
     id: int
     user_id: int
     username: str | None
     first_name: str
-    ton_wallet: str | None
-    amount: float
+    amount_rr: float
+    amount_crypto: float
+    currency: str
+    wallet_address: str
+    review_type: str     # auto | manual
     status: str          # pending / approved / rejected
     ton_tx_hash: str | None
     created_at: str
@@ -429,14 +433,35 @@ class BulkApproveRequest(BaseModel):
     tx_ids: list[int]
 
 
-def _parse_withdraw_status(reference: str | None) -> str:
+def _parse_withdraw_ref(reference: str | None) -> dict:
+    """Parse new-format reference: withdraw:{currency}:{amount_crypto}:{wallet}:{review}:{status}"""
     if not reference:
-        return "pending"
-    if ":approved" in reference:
-        return "approved"
-    if ":rejected" in reference:
-        return "rejected"
-    return "pending"
+        return {"currency": "TON", "amount_crypto": 0.0, "wallet": "", "review_type": "manual", "status": "pending"}
+    parts = reference.split(":")
+    # new format has 6 parts
+    if len(parts) >= 6 and parts[0] == "withdraw":
+        return {
+            "currency":     parts[1].upper(),
+            "amount_crypto": float(parts[2]),
+            "wallet":       parts[3],
+            "review_type":  parts[4],
+            "status":       parts[5],
+        }
+    # legacy format: "withdraw_to:<wallet>:<status>"
+    if reference.startswith("withdraw_to:"):
+        rest = reference[len("withdraw_to:"):]
+        sub = rest.rsplit(":", 1)
+        return {
+            "currency": "TON", "amount_crypto": 0.0,
+            "wallet": sub[0] if len(sub) > 1 else rest,
+            "review_type": "manual",
+            "status": sub[1] if len(sub) > 1 else "pending",
+        }
+    return {"currency": "TON", "amount_crypto": 0.0, "wallet": "", "review_type": "manual", "status": "pending"}
+
+
+def _parse_withdraw_status(reference: str | None) -> str:
+    return _parse_withdraw_ref(reference)["status"]
 
 
 @router.get("/withdrawals", response_model=list[WithdrawalOut])
@@ -458,17 +483,20 @@ async def list_withdrawals(
 
     out = []
     for tx, u in rows:
-        tx_status = _parse_withdraw_status(tx.reference)
-        if status != "all" and tx_status != status:
+        ref = _parse_withdraw_ref(tx.reference)
+        if status != "all" and ref["status"] != status:
             continue
         out.append(WithdrawalOut(
             id=tx.id,
             user_id=u.id,
             username=u.username,
             first_name=u.first_name,
-            ton_wallet=u.ton_wallet,
-            amount=abs(float(tx.amount)),
-            status=tx_status,
+            amount_rr=abs(float(tx.amount)),
+            amount_crypto=ref["amount_crypto"],
+            currency=ref["currency"],
+            wallet_address=ref["wallet"],
+            review_type=ref["review_type"],
+            status=ref["status"],
             ton_tx_hash=tx.ton_tx_hash,
             created_at=tx.created_at.isoformat(),
         ))
@@ -534,36 +562,37 @@ async def _process_withdrawal(tx_id: int, db: AsyncSession, approve: bool) -> di
     if current_status != "pending":
         raise HTTPException(status_code=409, detail=f"Already {current_status}")
 
-    wallet_part = (tx.reference or "").replace("withdraw_to:", "").split(":")[0]
+    ref = _parse_withdraw_ref(tx.reference)
+    wallet = ref["wallet"] or user.ton_wallet or ""
+    amount_rr = abs(float(tx.amount))
+    amount_crypto = ref["amount_crypto"]
+    currency = ref["currency"]
 
     if not approve:
         # Refund balance
         bal_result = await db.execute(select(Balance).where(Balance.user_id == user.id))
         bal = bal_result.scalar_one_or_none()
         if bal:
-            bal.amount = float(bal.amount) + abs(float(tx.amount))
-        tx.reference = f"withdraw_to:{wallet_part}:rejected"
+            bal.amount = float(bal.amount) + amount_rr
+        # Update status in reference
+        tx.reference = f"withdraw:{currency.lower()}:{amount_crypto}:{wallet}:{ref['review_type']}:rejected"
         await db.commit()
         return {"status": "rejected", "tx_id": tx_id}
 
-    # Auto-send crypto
-    amount = abs(float(tx.amount))
-    wallet = user.ton_wallet or wallet_part
-
     if not wallet:
-        raise HTTPException(status_code=400, detail="No wallet address for user")
+        raise HTTPException(status_code=400, detail="No wallet address")
 
-    # Auto-approve small amounts (≤ 50 RR), large ones also approved but logged
-    tx_hash = await send_jetton_transfer(wallet, amount, memo=f"withdraw:{tx_id}")
+    # Attempt on-chain send
+    tx_hash = await send_jetton_transfer(wallet, amount_crypto, memo=f"RR-{tx_id}")
 
+    new_ref = f"withdraw:{currency.lower()}:{amount_crypto}:{wallet}:{ref['review_type']}:approved"
     if tx_hash:
         tx.ton_tx_hash = tx_hash
-        tx.reference = f"withdraw_to:{wallet}:approved"
+        tx.reference = new_ref
         await db.commit()
         return {"status": "approved", "tx_id": tx_id, "tx_hash": tx_hash}
     else:
-        # TON not configured yet — mark approved without hash
-        tx.reference = f"withdraw_to:{wallet}:approved"
+        tx.reference = new_ref
         await db.commit()
         return {"status": "approved_manual", "tx_id": tx_id, "tx_hash": None,
-                "note": "TON not configured, send manually"}
+                "note": "TON mnemonics not configured — send manually"}

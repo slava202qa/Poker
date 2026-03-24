@@ -1,3 +1,14 @@
+"""
+Economy API: balances, deposits (with payment details), withdrawals, FUN refill.
+
+Deposit flow:
+  1. POST /economy/deposit/init  → returns wallet address, unique comment, QR data
+  2. Blockchain listener (ton_listener.py) polls TonCenter, matches comment → credits balance
+
+Withdrawal flow:
+  1. POST /economy/withdraw       → deducts balance instantly, creates pending Transaction
+  2. Admin approves via /admin/transfers/approve/{tx_id}
+"""
 import datetime
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -5,6 +16,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.api.deps import get_current_user
+from app.config import get_settings, Settings
 from app.models.user import User
 from app.models.balance import Balance, Transaction, TxType, CurrencyType
 
@@ -12,25 +24,47 @@ router = APIRouter(prefix="/economy", tags=["economy"])
 
 FUN_REFILL_AMOUNT = 10_000
 FUN_REFILL_COOLDOWN_HOURS = 4
-FUN_REFILL_THRESHOLD = 1_000  # can only refill when FUN balance below this
+FUN_REFILL_THRESHOLD = 1_000
 
+
+# ── Schemas ──────────────────────────────────────────────────────────────────
 
 class BalanceResponse(BaseModel):
     balance: float
     fun_balance: float
     wallet: str | None
 
+class RatesResponse(BaseModel):
+    rate_usdt_per_rr: float
+    rate_ton_per_rr: float
+    rr_per_usdt: float
+    rr_per_ton: float
 
-class DepositNotify(BaseModel):
-    """Called by TON listener when deposit detected."""
-    ton_tx_hash: str
-    amount: float
+class DepositInitRequest(BaseModel):
+    amount_rr: float
+    currency: str  # "ton" | "usdt"
 
+class DepositInitResponse(BaseModel):
+    wallet_address: str
+    amount_crypto: float
+    currency: str
+    comment: str
+    qr_data: str
+    amount_rr: float
 
 class WithdrawRequest(BaseModel):
-    amount: float
+    amount_rr: float
+    currency: str   # "ton" | "usdt"
     wallet_address: str
 
+class WithdrawResponse(BaseModel):
+    status: str
+    amount_rr: float
+    amount_crypto: float
+    currency: str
+    to: str
+    new_balance: float
+    tx_id: int
 
 class TransactionResponse(BaseModel):
     id: int
@@ -42,12 +76,147 @@ class TransactionResponse(BaseModel):
     created_at: str
 
 
+# ── Helpers ───────────────────────────────────────────────────────────────────
+
+def _make_comment(user_id: int, currency: str) -> str:
+    day = datetime.date.today().strftime("%m%d")
+    return f"RR{user_id}{currency.upper()}{day}"
+
+def _ton_qr(wallet: str, amount_ton: float, comment: str) -> str:
+    nano = int(amount_ton * 1_000_000_000)
+    return f"ton://transfer/{wallet}?amount={nano}&text={comment}"
+
+
+# ── Endpoints ─────────────────────────────────────────────────────────────────
+
+@router.get("/rates", response_model=RatesResponse)
+async def get_rates(settings: Settings = Depends(get_settings)):
+    return RatesResponse(
+        rate_usdt_per_rr=settings.rate_usdt_per_rr,
+        rate_ton_per_rr=settings.rate_ton_per_rr,
+        rr_per_usdt=round(1 / settings.rate_usdt_per_rr, 2),
+        rr_per_ton=round(1 / settings.rate_ton_per_rr, 2),
+    )
+
+
 @router.get("/balance", response_model=BalanceResponse)
 async def get_balance(user: User = Depends(get_current_user)):
     return BalanceResponse(
         balance=float(user.balance.amount) if user.balance else 0,
         fun_balance=float(user.balance.fun_amount) if user.balance else 0,
         wallet=user.ton_wallet,
+    )
+
+
+@router.post("/deposit/init", response_model=DepositInitResponse)
+async def deposit_init(
+    body: DepositInitRequest,
+    user: User = Depends(get_current_user),
+    settings: Settings = Depends(get_settings),
+):
+    if body.amount_rr < 10:
+        raise HTTPException(status_code=400, detail="Минимум 10 RR")
+    if body.currency not in ("ton", "usdt"):
+        raise HTTPException(status_code=400, detail="currency must be ton or usdt")
+    if not settings.system_wallet_address:
+        raise HTTPException(status_code=503, detail="Wallet not configured")
+
+    rate = settings.rate_ton_per_rr if body.currency == "ton" else settings.rate_usdt_per_rr
+    amount_crypto = round(body.amount_rr * rate, 6)
+    comment = _make_comment(user.id, body.currency)
+
+    if body.currency == "ton":
+        qr_data = _ton_qr(settings.system_wallet_address, amount_crypto, comment)
+    else:
+        qr_data = f"usdt:{settings.system_wallet_address}?amount={amount_crypto}&memo={comment}"
+
+    return DepositInitResponse(
+        wallet_address=settings.system_wallet_address,
+        amount_crypto=amount_crypto,
+        currency=body.currency.upper(),
+        comment=comment,
+        qr_data=qr_data,
+        amount_rr=body.amount_rr,
+    )
+
+
+@router.post("/deposit/confirm")
+async def deposit_confirm(
+    ton_tx_hash: str,
+    amount_rr: float,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Called by blockchain listener after verifying tx on-chain."""
+    if amount_rr <= 0:
+        raise HTTPException(status_code=400, detail="Invalid amount")
+
+    existing = await db.execute(
+        select(Transaction).where(Transaction.ton_tx_hash == ton_tx_hash)
+    )
+    if existing.scalar_one_or_none():
+        return {"status": "already_credited"}
+
+    balance = user.balance
+    balance.amount = float(balance.amount) + amount_rr
+    tx = Transaction(
+        user_id=user.id,
+        tx_type=TxType.DEPOSIT,
+        amount=amount_rr,
+        balance_after=float(balance.amount),
+        ton_tx_hash=ton_tx_hash,
+        reference="deposit_confirmed",
+    )
+    db.add(tx)
+    await db.flush()
+    return {"status": "credited", "new_balance": float(balance.amount)}
+
+
+@router.post("/withdraw", response_model=WithdrawResponse)
+async def withdraw(
+    body: WithdrawRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+    settings: Settings = Depends(get_settings),
+):
+    if body.amount_rr < 10:
+        raise HTTPException(status_code=400, detail="Минимум 10 RR")
+    if body.currency not in ("ton", "usdt"):
+        raise HTTPException(status_code=400, detail="currency must be ton or usdt")
+    if not body.wallet_address.strip():
+        raise HTTPException(status_code=400, detail="Укажите адрес кошелька")
+
+    balance = user.balance
+    current = float(balance.amount)
+    if current < body.amount_rr:
+        raise HTTPException(status_code=400, detail="Недостаточно Клубных Активов")
+
+    rate = settings.rate_ton_per_rr if body.currency == "ton" else settings.rate_usdt_per_rr
+    amount_crypto = round(body.amount_rr * rate, 6)
+    amount_usd = body.amount_rr * settings.rate_usdt_per_rr
+    review_flag = "auto" if amount_usd < settings.auto_pay_usd_limit else "manual"
+
+    balance.amount = current - body.amount_rr
+
+    tx = Transaction(
+        user_id=user.id,
+        tx_type=TxType.WITHDRAW,
+        amount=-body.amount_rr,
+        balance_after=float(balance.amount),
+        reference=f"withdraw:{body.currency}:{amount_crypto}:{body.wallet_address}:{review_flag}:pending",
+    )
+    db.add(tx)
+    await db.flush()
+    await db.refresh(tx)
+
+    return WithdrawResponse(
+        status="pending",
+        amount_rr=body.amount_rr,
+        amount_crypto=amount_crypto,
+        currency=body.currency.upper(),
+        to=body.wallet_address,
+        new_balance=float(balance.amount),
+        tx_id=tx.id,
     )
 
 
@@ -74,85 +243,16 @@ async def get_transactions(
     ]
 
 
-@router.post("/deposit/notify")
-async def deposit_notify(
-    body: DepositNotify,
-    db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
-):
-    """
-    Called after TON listener confirms a CHIP deposit.
-    In production, this would be an internal endpoint called by ton_listener.
-    """
-    if body.amount <= 0:
-        raise HTTPException(status_code=400, detail="Invalid amount")
-
-    balance = user.balance
-    balance.amount = float(balance.amount) + body.amount
-
-    tx = Transaction(
-        user_id=user.id,
-        tx_type=TxType.DEPOSIT,
-        amount=body.amount,
-        balance_after=float(balance.amount),
-        ton_tx_hash=body.ton_tx_hash,
-    )
-    db.add(tx)
-    await db.flush()
-
-    return {"status": "credited", "new_balance": float(balance.amount)}
-
-
-@router.post("/withdraw")
-async def withdraw(
-    body: WithdrawRequest,
-    db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
-):
-    """Request CHIP withdrawal to TON wallet."""
-    if body.amount <= 0:
-        raise HTTPException(status_code=400, detail="Invalid amount")
-
-    balance = user.balance
-    if float(balance.amount) < body.amount:
-        raise HTTPException(status_code=400, detail="Insufficient balance")
-
-    balance.amount = float(balance.amount) - body.amount
-
-    tx = Transaction(
-        user_id=user.id,
-        tx_type=TxType.WITHDRAW,
-        amount=-body.amount,
-        balance_after=float(balance.amount),
-        reference=f"withdraw_to:{body.wallet_address}",
-    )
-    db.add(tx)
-    await db.flush()
-
-    # In production: trigger ton_withdraw.py to send CHIP on-chain
-    # For now, mark as pending
-    return {
-        "status": "pending",
-        "amount": body.amount,
-        "to": body.wallet_address,
-        "new_balance": float(balance.amount),
-    }
-
-
 @router.post("/fun/refill")
 async def refill_fun(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """Refill FUN balance. Available every 4 hours when balance < 1000."""
     balance = user.balance
     current_fun = float(balance.fun_amount)
 
     if current_fun >= FUN_REFILL_THRESHOLD:
-        raise HTTPException(
-            status_code=400,
-            detail=f"FUN balance must be below {FUN_REFILL_THRESHOLD} to refill"
-        )
+        raise HTTPException(status_code=400, detail=f"Баланс BR должен быть ниже {FUN_REFILL_THRESHOLD}")
 
     now = datetime.datetime.now(datetime.timezone.utc)
     if balance.fun_last_refill:
@@ -160,10 +260,7 @@ async def refill_fun(
         remaining = FUN_REFILL_COOLDOWN_HOURS * 3600 - elapsed
         if remaining > 0:
             mins = int(remaining // 60)
-            raise HTTPException(
-                status_code=400,
-                detail=f"Refill available in {mins} minutes"
-            )
+            raise HTTPException(status_code=400, detail=f"Пополнение через {mins} мин.")
 
     balance.fun_amount = current_fun + FUN_REFILL_AMOUNT
     balance.fun_last_refill = now
@@ -179,8 +276,4 @@ async def refill_fun(
     db.add(tx)
     await db.flush()
 
-    return {
-        "status": "refilled",
-        "fun_balance": float(balance.fun_amount),
-        "next_refill_hours": FUN_REFILL_COOLDOWN_HOURS,
-    }
+    return {"status": "refilled", "fun_balance": float(balance.fun_amount)}

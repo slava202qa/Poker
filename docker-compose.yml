@@ -70,6 +70,21 @@ services:
       - redis
     restart: unless-stopped
 
+  ton_listener:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.backend
+    command: python ton_listener.py
+    env_file: .env
+    environment:
+      - BACKEND_URL=http://backend:8000
+      - PYTHONPATH=/app
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+    working_dir: /app
+
   frontend:
     build:
       context: .
