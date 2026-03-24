@@ -16,11 +16,45 @@ interface SeasonProgress {
   ends_at: string
 }
 
+// SVG icons for grid — inline to avoid emoji rendering differences across devices
+const GridIcon = ({ type, active }: { type: string; active?: boolean }) => {
+  const c = active ? '#d4a843' : '#9ca3af'
+  if (type === 'tournaments') return (
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/>
+      <path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/>
+      <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/>
+      <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/>
+    </svg>
+  )
+  if (type === 'profile') return (
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
+      <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+    </svg>
+  )
+  if (type === 'shop') return (
+    // Card fan — poker themed
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
+      <rect x="2" y="5" width="11" height="15" rx="2" stroke={c} strokeWidth="1.8" transform="rotate(-15 7.5 12.5)"/>
+      <rect x="7" y="4" width="11" height="15" rx="2" stroke={c} strokeWidth="1.8"/>
+      <rect x="11" y="5" width="11" height="15" rx="2" stroke={c} strokeWidth="1.8" transform="rotate(15 16.5 12.5)"/>
+      <text x="12" y="15" textAnchor="middle" fontSize="7" fill={c} fontWeight="bold">♠</text>
+    </svg>
+  )
+  // service — megaphone
+  return (
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 11l19-9-9 19-2-8-8-2z"/>
+    </svg>
+  )
+}
+
 const GRID_ITEMS = [
-  { icon: '🗓', label: 'События',   path: '/tournaments' },
-  { icon: '♣️', label: 'Клуб',      path: '/profile'     },
-  { icon: '🎒', label: 'Инвентарь', path: '/shop'        },
-  { icon: 'ℹ️', label: 'Сервис',    path: '/info'        },
+  { type: 'tournaments', label: 'События',        path: '/tournaments' },
+  { type: 'profile',     label: 'Клуб',           path: '/profile'     },
+  { type: 'shop',        label: 'Инвентарь',      path: '/shop'        },
+  { type: 'service',     label: 'Клубный Сервис', path: '/service'     },
 ]
 
 export default function Home() {
@@ -211,8 +245,8 @@ export default function Home() {
             transition={{ delay: 0.2 + i * 0.04 }}
             className="card-surface p-3 flex flex-col items-center gap-1.5 hover:border-poker-gold/20 transition-colors"
           >
-            <span className="text-xl">{item.icon}</span>
-            <span className="text-[10px] text-gray-500 font-medium">{item.label}</span>
+            <GridIcon type={item.type} />
+            <span className="text-[9px] text-gray-500 font-medium leading-tight text-center">{item.label}</span>
           </motion.button>
         ))}
       </motion.div>
