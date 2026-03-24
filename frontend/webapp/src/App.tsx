@@ -17,6 +17,7 @@ import AdminTournaments from './pages/admin/AdminTournaments'
 import AdminUsers from './pages/admin/AdminUsers'
 import AdminWithdrawals from './pages/admin/AdminWithdrawals'
 import Terms from './pages/Terms'
+import Info from './pages/Info'
 
 export default function App() {
   const { tg, user: tgUser } = useTelegram()
@@ -60,6 +61,7 @@ export default function App() {
         <Route path="/shop" element={<Shop />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/terms" element={<Terms />} />
+        <Route path="/info" element={<Info />} />
         {/* Admin panel */}
         <Route path="/admin" element={<AdminLayout />}>
           <Route index element={<Dashboard />} />

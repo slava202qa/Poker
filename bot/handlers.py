@@ -1,7 +1,8 @@
 import logging
+import os
 import httpx
 from aiogram import Router, F
-from aiogram.types import Message, CallbackQuery
+from aiogram.types import Message, CallbackQuery, FSInputFile
 from aiogram.filters import CommandStart, Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
@@ -71,20 +72,35 @@ async def adjust_balance(telegram_id: int, amount: float, reference: str) -> boo
 
 # ── /start ──
 
+BANNER_PATH = os.path.join(os.path.dirname(__file__), "banner.png")
+
+WELCOME_TEXT = (
+    "♠️ <b>Royal Roll Club</b> — добро пожаловать в закрытое сообщество "
+    "любителей спортивного покера.\n\n"
+    "Здесь мастерство встречается с азартом в эксклюзивной атмосфере "
+    "<b>Black &amp; Gold</b>.\n\n"
+    "💎 <b>Ваши возможности:</b>\n"
+    "• Участие в ежедневных турнирах\n"
+    "• Управление Клубными Активами\n"
+    "• Доступ к VIP-залам\n\n"
+    "💳 Управление балансом и обмен наград — внутри приложения.\n\n"
+    "👇 Нажми <b>♠️ ВХОД В ЗАЛ</b>, чтобы начать игру."
+)
+
+
 @router.message(CommandStart())
 async def cmd_start(message: Message, state: FSMContext):
     await state.clear()
-    await message.answer(
-        "♠️ <b>Royal Roll Poker</b>\n\n"
-        "Добро пожаловать!\n"
-        "Играй в Texas Hold'em на RR токены.\n\n"
-        "💰 <b>/buy</b> — купить RR за TON или USDT\n"
-        "💸 <b>/sell</b> — продать RR за TON или USDT\n"
-        "📊 <b>/rates</b> — курсы обмена\n"
-        "💎 <b>/balance</b> — ваш баланс\n\n"
-        "Нажми <b>🎮 Играть</b> чтобы начать.",
-        reply_markup=get_main_keyboard(message.from_user.id),
-    )
+    kb = get_main_keyboard(message.from_user.id)
+    if os.path.exists(BANNER_PATH):
+        await message.answer_photo(
+            photo=FSInputFile(BANNER_PATH),
+            caption=WELCOME_TEXT,
+            parse_mode="HTML",
+            reply_markup=kb,
+        )
+    else:
+        await message.answer(WELCOME_TEXT, parse_mode="HTML", reply_markup=kb)
 
 
 # ── /admin ──

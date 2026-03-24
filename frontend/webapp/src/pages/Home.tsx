@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 import { useTonConnectUI, useTonAddress } from '@tonconnect/ui-react'
 import { useTelegram } from '../hooks/useTelegram'
 import { useStore } from '../store/useStore'
@@ -15,6 +15,13 @@ interface SeasonProgress {
   progress_pct: number
   ends_at: string
 }
+
+const GRID_ITEMS = [
+  { icon: '🗓', label: 'События',   path: '/tournaments' },
+  { icon: '♣️', label: 'Клуб',      path: '/profile'     },
+  { icon: '🎒', label: 'Инвентарь', path: '/shop'        },
+  { icon: 'ℹ️', label: 'Сервис',    path: '/info'        },
+]
 
 export default function Home() {
   const navigate = useNavigate()
@@ -34,180 +41,199 @@ export default function Home() {
     : null
 
   return (
-    <div className="min-h-screen pb-24 px-4 pt-6 space-y-4">
+    <div className="min-h-screen pb-24 px-4 pt-5 space-y-4 relative z-10">
 
-      {/* Header */}
+      {/* ── Header ── */}
       <motion.div
-        initial={{ y: -12, opacity: 0 }}
+        initial={{ y: -10, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         className="flex items-center justify-between"
       >
         <div>
-          <h1 className="text-2xl font-extrabold tracking-tight">
-            Royal <span className="text-poker-gold">Roll</span>
+          <h1 className="text-xl font-extrabold tracking-tight text-glow-gold">
+            ROYAL <span className="text-poker-gold">ROLL</span>
           </h1>
-          <p className="text-xs text-gray-500 mt-0.5">
-            Привет, {tgUser?.first_name || 'игрок'} 👋
+          <p className="text-[11px] text-gray-600 mt-0.5">
+            Добро пожаловать, {tgUser?.first_name || 'игрок'}
           </p>
         </div>
+        {/* Gold Ace of Spades */}
         <motion.div
-          animate={{ rotate: [0, 5, -5, 0] }}
-          transition={{ repeat: Infinity, duration: 4, ease: 'easeInOut' }}
-          className="text-3xl"
+          animate={{ rotateY: [0, 15, -15, 0] }}
+          transition={{ repeat: Infinity, duration: 5, ease: 'easeInOut' }}
+          className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl"
+          style={{
+            background: 'linear-gradient(135deg, #1e1a0e, #2a2210)',
+            border: '1px solid rgba(212,168,67,0.3)',
+            boxShadow: '0 0 16px rgba(212,168,67,0.15)',
+          }}
         >
-          🎰
+          🂡
         </motion.div>
       </motion.div>
 
-      {/* Double wallet */}
+      {/* ── Double Wallet ── */}
       <motion.div
-        initial={{ scale: 0.95, opacity: 0 }}
+        initial={{ scale: 0.96, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         transition={{ delay: 0.05 }}
         className="grid grid-cols-2 gap-3"
       >
-        {/* Real RR */}
+        {/* Клубные Активы (RR) */}
         <div className="card-surface-glow p-4 relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-poker-gold/5 to-transparent pointer-events-none" />
-          <div className="text-[10px] text-gray-500 mb-1 font-medium uppercase tracking-wider">
-            💰 Real RR
+          <div className="flex items-center gap-2 mb-2">
+            {/* Gold bag icon */}
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <path d="M9 4h6l1 3H8L9 4z" fill="#d4a843" opacity="0.9"/>
+              <rect x="4" y="7" width="16" height="13" rx="3" fill="#d4a843" opacity="0.15" stroke="#d4a843" strokeWidth="1.5"/>
+              <path d="M12 11v4M10 13h4" stroke="#d4a843" strokeWidth="1.5" strokeLinecap="round"/>
+            </svg>
+            <span className="text-[10px] text-gray-500 font-semibold uppercase tracking-wider">Клубные Активы</span>
           </div>
           <div className="text-2xl font-extrabold text-poker-gold tabular-nums">
             {(user?.balance ?? 0).toLocaleString()}
           </div>
-          <div className="text-[10px] text-gray-600 mt-0.5">Игровые активы</div>
+          <div className="text-[10px] text-poker-gold/40 mt-0.5 font-medium">RR</div>
         </div>
-        {/* Bonus RR */}
-        <div className="card-surface p-4 relative overflow-hidden border border-blue-500/10">
-          <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent pointer-events-none" />
-          <div className="text-[10px] text-gray-500 mb-1 font-medium uppercase tracking-wider">
-            🎁 Bonus RR
+
+        {/* Бонусные Баллы (BR) */}
+        <div className="card-surface p-4 relative overflow-hidden" style={{ borderColor: 'rgba(99,102,241,0.15)' }}>
+          <div className="flex items-center gap-2 mb-2">
+            {/* Blue gift icon */}
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <rect x="3" y="8" width="18" height="13" rx="2" fill="#6366f1" opacity="0.15" stroke="#6366f1" strokeWidth="1.5"/>
+              <path d="M12 8V21M3 13h18" stroke="#6366f1" strokeWidth="1.5" strokeLinecap="round"/>
+              <path d="M8 8c0-2 1.5-4 4-4s4 2 4 4" stroke="#6366f1" strokeWidth="1.5" strokeLinecap="round"/>
+            </svg>
+            <span className="text-[10px] text-gray-500 font-semibold uppercase tracking-wider">Бонусные Баллы</span>
           </div>
-          <div className="text-2xl font-extrabold text-blue-400 tabular-nums">
+          <div className="text-2xl font-extrabold text-indigo-400 tabular-nums">
             {(user?.fun_balance ?? 0).toLocaleString()}
           </div>
-          <div className="text-[10px] text-gray-600 mt-0.5">Бонусные награды</div>
+          <div className="text-[10px] text-indigo-400/40 mt-0.5 font-medium">BR</div>
         </div>
       </motion.div>
 
-      {/* Battle Pass season card */}
+      {/* ── Battle Pass strip ── */}
       {season && (
         <motion.div
-          initial={{ y: 8, opacity: 0 }}
+          initial={{ y: 6, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.1 }}
-          className="card-surface p-4 border border-poker-gold/10"
+          className="card-ticket p-3.5"
         >
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
-              <span className="text-lg">🏆</span>
+              <span className="text-base">🏆</span>
               <div>
-                <div className="text-sm font-bold">{season.season_name}</div>
-                <div className="text-[10px] text-gray-500">Осталось {daysLeft} дн.</div>
+                <div className="text-xs font-bold text-poker-gold">{season.season_name}</div>
+                <div className="text-[10px] text-gray-600">Осталось {daysLeft} дн.</div>
               </div>
             </div>
             <div className="text-right">
-              <div className="text-xs font-bold text-poker-gold">Ур. {season.current_level}</div>
-              <div className="text-[10px] text-gray-500">из {season.total_levels}</div>
+              <div className="text-xs font-extrabold text-poker-gold">Ур. {season.current_level}</div>
+              <div className="text-[10px] text-gray-600">/ {season.total_levels}</div>
             </div>
           </div>
-          {/* XP bar */}
           <div className="flex items-center gap-2">
-            <div className="flex-1 h-2 bg-white/[0.06] rounded-full overflow-hidden">
+            <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
               <motion.div
                 initial={{ width: 0 }}
                 animate={{ width: `${season.progress_pct}%` }}
-                transition={{ duration: 0.8, ease: 'easeOut' }}
-                className="h-full bg-gradient-to-r from-poker-gold to-yellow-400 rounded-full"
+                transition={{ duration: 0.9, ease: 'easeOut' }}
+                className="h-full rounded-full"
+                style={{ background: 'linear-gradient(90deg, #c49a30, #f0d078)' }}
               />
             </div>
-            <span className="text-[10px] text-gray-500 font-mono w-16 text-right">
+            <span className="text-[10px] text-gray-600 font-mono w-16 text-right">
               {season.current_xp}/{season.xp_per_level} XP
             </span>
           </div>
-          <button
-            onClick={() => navigate('/profile')}
-            className="mt-2 text-[10px] text-poker-gold/70 hover:text-poker-gold transition-colors"
-          >
-            Посмотреть награды →
-          </button>
         </motion.div>
       )}
 
-      {/* Main PLAY button */}
+      {/* ── ВХОД В ЗАЛ button ── */}
       <motion.div
-        initial={{ scale: 0.9, opacity: 0 }}
+        initial={{ scale: 0.92, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        transition={{ delay: 0.15, type: 'spring', stiffness: 200 }}
+        transition={{ delay: 0.12, type: 'spring', stiffness: 180 }}
         className="relative"
       >
-        {/* Glow pulse behind button */}
+        {/* Ambient glow */}
         <motion.div
-          animate={{ scale: [1, 1.08, 1], opacity: [0.4, 0.7, 0.4] }}
-          transition={{ repeat: Infinity, duration: 2.5, ease: 'easeInOut' }}
-          className="absolute inset-0 rounded-2xl bg-poker-gold/20 blur-xl pointer-events-none"
+          animate={{ opacity: [0.3, 0.6, 0.3] }}
+          transition={{ repeat: Infinity, duration: 3, ease: 'easeInOut' }}
+          className="absolute inset-0 rounded-2xl pointer-events-none"
+          style={{ background: 'radial-gradient(ellipse at center, rgba(212,168,67,0.25) 0%, transparent 70%)', filter: 'blur(12px)' }}
         />
         <motion.button
-          whileTap={{ scale: 0.96 }}
-          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.97 }}
           onClick={() => navigate('/tables')}
-          className="relative w-full py-5 rounded-2xl font-extrabold text-xl tracking-wide overflow-hidden"
+          className="relative w-full py-5 rounded-2xl font-extrabold text-lg tracking-[0.12em] overflow-hidden"
           style={{
-            background: 'linear-gradient(135deg, #d4a843 0%, #f0d078 40%, #d4a843 70%, #a07820 100%)',
-            boxShadow: '0 0 30px rgba(212,168,67,0.4), 0 4px 20px rgba(0,0,0,0.5)',
-            color: '#1a0f00',
+            background: 'linear-gradient(135deg, #b8892a 0%, #f0d078 35%, #d4a843 65%, #9a7020 100%)',
+            boxShadow: '0 0 32px rgba(212,168,67,0.35), 0 6px 24px rgba(0,0,0,0.6)',
+            color: '#0a0a0a',
           }}
         >
-          {/* Shimmer sweep */}
+          {/* Shimmer */}
           <motion.div
-            animate={{ x: ['-100%', '200%'] }}
-            transition={{ repeat: Infinity, duration: 2.2, ease: 'easeInOut', repeatDelay: 1 }}
-            className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent skew-x-12 pointer-events-none"
+            animate={{ x: ['-120%', '220%'] }}
+            transition={{ repeat: Infinity, duration: 2.5, ease: 'easeInOut', repeatDelay: 1.5 }}
+            className="absolute inset-0 pointer-events-none"
+            style={{
+              background: 'linear-gradient(105deg, transparent 30%, rgba(255,255,255,0.35) 50%, transparent 70%)',
+              transform: 'skewX(-15deg)',
+            }}
           />
           <span className="relative z-10 flex items-center justify-center gap-3">
-            <span>🎰</span>
-            <span>ИГРАТЬ</span>
-            <span>🃏</span>
+            <span className="text-xl">♠</span>
+            <span>ВХОД В ЗАЛ</span>
+            <span className="text-xl">♠</span>
           </span>
         </motion.button>
       </motion.div>
 
-      {/* Quick actions */}
+      {/* ── 4-icon grid ── */}
       <motion.div
         initial={{ y: 8, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        transition={{ delay: 0.2 }}
-        className="grid grid-cols-3 gap-2"
+        transition={{ delay: 0.18 }}
+        className="grid grid-cols-4 gap-2"
       >
-        {[
-          { icon: '🏆', label: 'Турниры',  path: '/tournaments' },
-          { icon: '🛍',  label: 'Сумка',    path: '/shop'        },
-          { icon: '👤',  label: 'Профиль',  path: '/profile'     },
-        ].map((item, i) => (
+        {GRID_ITEMS.map((item, i) => (
           <motion.button
             key={item.path}
-            whileTap={{ scale: 0.94 }}
+            whileTap={{ scale: 0.93 }}
             onClick={() => navigate(item.path)}
             initial={{ y: 10, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
-            transition={{ delay: 0.22 + i * 0.05 }}
-            className="card-surface p-4 flex flex-col items-center gap-2 hover:border-poker-gold/20 transition-colors"
+            transition={{ delay: 0.2 + i * 0.04 }}
+            className="card-surface p-3 flex flex-col items-center gap-1.5 hover:border-poker-gold/20 transition-colors"
           >
-            <span className="text-2xl">{item.icon}</span>
-            <span className="text-xs text-gray-400 font-medium">{item.label}</span>
+            <span className="text-xl">{item.icon}</span>
+            <span className="text-[10px] text-gray-500 font-medium">{item.label}</span>
           </motion.button>
         ))}
       </motion.div>
 
-      {/* Wallet block */}
+      {/* ── TON Wallet ── */}
       <motion.div
         initial={{ y: 8, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        transition={{ delay: 0.3 }}
+        transition={{ delay: 0.25 }}
         className="card-surface p-4"
       >
         <div className="flex items-center justify-between mb-3">
-          <span className="text-sm font-bold">💎 TON Кошелёк</span>
+          <div className="flex items-center gap-2">
+            {/* TON logo */}
+            <svg width="18" height="18" viewBox="0 0 56 56" fill="none">
+              <circle cx="28" cy="28" r="28" fill="#0098EA"/>
+              <path d="M37.5 15H18.5C15.4 15 13.5 18.4 15.1 21L26.4 41.5C27.1 42.8 28.9 42.8 29.6 41.5L40.9 21C42.5 18.4 40.6 15 37.5 15Z" fill="white"/>
+              <path d="M28 15L21 30H35L28 15Z" fill="#0098EA" opacity="0.3"/>
+            </svg>
+            <span className="text-sm font-bold">TON Кошелёк</span>
+          </div>
           {address && (
             <span className="text-[10px] text-emerald-400 flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
@@ -217,19 +243,16 @@ export default function Home() {
         </div>
         {address ? (
           <div className="space-y-2">
-            <div className="bg-white/[0.03] rounded-xl p-3 font-mono text-xs text-gray-400 truncate">
+            <div className="rounded-xl p-2.5 font-mono text-xs text-gray-500 truncate" style={{ background: 'rgba(255,255,255,0.03)' }}>
               {address}
             </div>
             <div className="grid grid-cols-2 gap-2">
-              <button
-                onClick={() => navigate('/shop')}
-                className="btn-gold !py-2 !text-xs !rounded-xl"
-              >
+              <button onClick={() => navigate('/shop')} className="btn-gold !py-2 !text-xs !rounded-xl">
                 Пополнить
               </button>
               <button
                 onClick={() => tonConnectUI.disconnect()}
-                className="bg-white/[0.05] border border-white/[0.08] text-gray-400 text-xs py-2 rounded-xl font-medium hover:text-white transition-colors"
+                className="btn-secondary !py-2 !text-xs !rounded-xl"
               >
                 Отключить
               </button>
@@ -238,46 +261,21 @@ export default function Home() {
         ) : (
           <button
             onClick={() => tonConnectUI.openModal()}
-            className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl py-3 text-sm text-gray-300 font-medium hover:border-poker-gold/30 hover:text-white transition-all"
+            className="w-full rounded-xl py-3 text-sm text-gray-400 font-medium transition-all hover:text-white"
+            style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}
           >
-            🔗 Подключить кошелёк
+            Подключить кошелёк
           </button>
         )}
       </motion.div>
 
-      {/* Info cards */}
-      <motion.div
-        initial={{ y: 8, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ delay: 0.35 }}
-        className="grid grid-cols-2 gap-3"
-      >
-        <div className="card-surface p-4">
-          <div className="text-lg mb-1">🔄</div>
-          <div className="text-xs font-bold mb-0.5">Обмен активов</div>
-          <div className="text-[10px] text-gray-500 leading-relaxed">
-            Пополни через бота командой /buy
-          </div>
-        </div>
-        <div className="card-surface p-4">
-          <div className="text-lg mb-1">🎁</div>
-          <div className="text-xs font-bold mb-0.5">Ежедневные награды</div>
-          <div className="text-[10px] text-gray-500 leading-relaxed">
-            Заходи каждый день за бонусом
-          </div>
-        </div>
-      </motion.div>
-
-      {/* Terms */}
+      {/* ── Footer ── */}
       <p className="text-center text-[10px] text-gray-700 pb-2">
         Используя приложение, вы соглашаетесь с{' '}
-        <button
-          onClick={() => navigate('/terms')}
-          className="text-gray-500 underline underline-offset-2"
-        >
+        <button onClick={() => navigate('/terms')} className="text-gray-600 underline underline-offset-2">
           Условиями использования
         </button>
-        . Все фишки виртуальны и не имеют денежной стоимости.
+        . Все активы виртуальны.
       </p>
     </div>
   )

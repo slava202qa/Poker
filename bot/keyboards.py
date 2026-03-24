@@ -14,10 +14,10 @@ def get_main_keyboard(user_id: int = 0) -> ReplyKeyboardMarkup:
     settings = get_bot_settings()
     rows = []
 
-    # Play button (WebApp)
+    # Entry button (WebApp)
     if settings.webapp_url.startswith("https://"):
         rows.append([KeyboardButton(
-            text="🎰 Играть",
+            text="♠️ ВХОД В ЗАЛ",
             web_app=WebAppInfo(url=settings.webapp_url),
         )])
 

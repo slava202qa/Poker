@@ -1,0 +1,54 @@
+<svg xmlns='http://www.w3.org/2000/svg' width='800' height='400' viewBox='0 0 800 400'>
+  <defs>
+    <radialGradient id='glow' cx='50%' cy='50%' r='50%'>
+      <stop offset='0%' stop-color='#d4a843' stop-opacity='0.18'/>
+      <stop offset='100%' stop-color='#0a0a0a' stop-opacity='0'/>
+    </radialGradient>
+    <linearGradient id='goldText' x1='0%' y1='0%' x2='0%' y2='100%'>
+      <stop offset='0%' stop-color='#f0d078'/>
+      <stop offset='50%' stop-color='#d4a843'/>
+      <stop offset='100%' stop-color='#9a7020'/>
+    </linearGradient>
+    <linearGradient id='subGold' x1='0%' y1='0%' x2='0%' y2='100%'>
+      <stop offset='0%' stop-color='#d4a843'/>
+      <stop offset='100%' stop-color='#8a6a1a'/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width='800' height='400' fill='#0a0a0a'/>
+
+  <!-- Subtle vignette -->
+  <rect width='800' height='400' fill='url(#glow)'/>
+
+  <!-- Top/bottom gold lines -->
+  <line x1='60' y1='30' x2='740' y2='30' stroke='#d4a843' stroke-opacity='0.2' stroke-width='1'/>
+  <line x1='60' y1='370' x2='740' y2='370' stroke='#d4a843' stroke-opacity='0.2' stroke-width='1'/>
+
+  <!-- Corner spades -->
+  <text x='40' y='60' font-family='serif' font-size='28' fill='#d4a843' fill-opacity='0.25'>♠</text>
+  <text x='730' y='60' font-family='serif' font-size='28' fill='#d4a843' fill-opacity='0.25'>♠</text>
+  <text x='40' y='380' font-family='serif' font-size='28' fill='#d4a843' fill-opacity='0.25'>♠</text>
+  <text x='730' y='380' font-family='serif' font-size='28' fill='#d4a843' fill-opacity='0.25'>♠</text>
+
+  <!-- Ace of spades — large center -->
+  <text x='400' y='230' font-family='serif' font-size='180' fill='url(#goldText)'
+        text-anchor='middle' dominant-baseline='middle'
+        filter='url(#shadow)'>♠</text>
+
+  <!-- Drop shadow for ace -->
+  <filter id='shadow'>
+    <feDropShadow dx='0' dy='0' stdDeviation='18' flood-color='#d4a843' flood-opacity='0.35'/>
+  </filter>
+  <text x='400' y='230' font-family='serif' font-size='180' fill='url(#goldText)'
+        text-anchor='middle' dominant-baseline='middle'
+        filter='url(#shadow)'>♠</text>
+
+  <!-- ROYAL ROLL -->
+  <text x='400' y='318' font-family='Arial Black, sans-serif' font-size='46' font-weight='900'
+        fill='url(#subGold)' text-anchor='middle' letter-spacing='8'>ROYAL ROLL</text>
+
+  <!-- Subtitle -->
+  <text x='400' y='352' font-family='Arial, sans-serif' font-size='16'
+        fill='#8a6a1a' text-anchor='middle' letter-spacing='3'>ЗАКРЫТЫЙ ПОКЕРНЫЙ КЛУБ</text>
+</svg>
