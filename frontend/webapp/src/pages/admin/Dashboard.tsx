@@ -17,12 +17,18 @@ interface Stats {
   system_balance: number
 }
 
+interface RefSettings { bonus_rr: number; total_referrals: number; total_bonus_paid: number }
+
 export default function Dashboard() {
   const [stats, setStats] = useState<Stats | null>(null)
+  const [refSettings, setRefSettings] = useState<RefSettings | null>(null)
+  const [bonusInput, setBonusInput] = useState('')
+  const [bonusSaved, setBonusSaved] = useState(false)
   const api = useApi()
 
   useEffect(() => {
     api.get<Stats>('/admin/stats').then(setStats).catch(() => {})
+    api.get<RefSettings>('/admin/referral/settings').then(s => { setRefSettings(s); setBonusInput(String(s.bonus_rr)) }).catch(() => {})
   }, [])
 
   if (!stats) {
@@ -104,6 +110,42 @@ export default function Dashboard() {
           <div className="border-t border-poker-border pt-3 flex justify-between">
             <span className="text-gray-400">Балансы игроков</span>
             <span className="text-poker-gold font-bold">{stats.system_balance.toFixed(2)} RR</span>
+          </div>
+        </div>
+      </div>
+      {/* Referral settings */}
+      <div>
+        <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-3">Рефералы</h3>
+        <div className="card-surface p-4 space-y-3">
+          <div className="flex justify-between">
+            <span className="text-gray-400">Всего приглашений</span>
+            <span className="text-white font-bold">{refSettings?.total_referrals ?? 0}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-gray-400">Выплачено бонусов</span>
+            <span className="text-poker-gold font-bold">{refSettings?.total_bonus_paid ?? 0} RR</span>
+          </div>
+          <div className="border-t border-poker-border pt-3">
+            <p className="text-xs text-gray-500 mb-2">Бонус за приглашение (RR)</p>
+            <div className="flex gap-2">
+              <input
+                type="number"
+                value={bonusInput}
+                onChange={e => setBonusInput(e.target.value)}
+                className="flex-1 rounded-xl px-3 py-2 text-sm bg-black/40 border border-poker-border text-white"
+              />
+              <button
+                onClick={() => {
+                  api.post('/admin/referral/settings', { bonus_rr: parseInt(bonusInput) })
+                    .then(() => { setBonusSaved(true); setTimeout(() => setBonusSaved(false), 2000) })
+                    .catch(() => {})
+                }}
+                className="px-4 py-2 rounded-xl text-xs font-bold"
+                style={{ background: bonusSaved ? 'rgba(34,197,94,0.15)' : 'rgba(212,168,67,0.1)', border: bonusSaved ? '1px solid rgba(34,197,94,0.3)' : '1px solid rgba(212,168,67,0.25)', color: bonusSaved ? '#4ade80' : '#d4a843' }}
+              >
+                {bonusSaved ? 'Сохранено' : 'Сохранить'}
+              </button>
+            </div>
           </div>
         </div>
       </div>

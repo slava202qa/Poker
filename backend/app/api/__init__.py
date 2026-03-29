@@ -9,6 +9,7 @@ from app.api.internal import router as internal_router
 from app.api.shop import router as shop_router
 from app.api.achievements import router as achievements_router
 from app.api.battlepass import router as battlepass_router
+from app.api.referral import router as referral_router
 
 api_router = APIRouter(prefix="/api")
 api_router.include_router(auth_router)
@@ -21,3 +22,4 @@ api_router.include_router(internal_router)
 api_router.include_router(shop_router)
 api_router.include_router(achievements_router)
 api_router.include_router(battlepass_router)
+api_router.include_router(referral_router)

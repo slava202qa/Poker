@@ -12,49 +12,47 @@ from app.models.user import User
 from app.models.balance import Balance
 
 
-def _parse_user_from_init_data(init_data: str) -> dict:
-    """Extract user dict from initData without HMAC check."""
-    # Try URL-decoded form
+def _parse_init_data(init_data: str) -> tuple[dict, dict]:
+    """Parse initData without HMAC. Returns (user_dict, extra_fields)."""
     for data in [init_data, unquote(init_data)]:
         parsed = parse_qs(data, keep_blank_values=True)
         user_raw = parsed.get("user", [None])[0]
-        if user_raw:
-            try:
-                return json.loads(unquote(user_raw))
-            except Exception:
-                continue
+        if not user_raw:
+            continue
+        try:
+            user_dict = json.loads(unquote(user_raw))
+            extra = {k: unquote(v[0]) for k, v in parsed.items() if k not in ("user", "hash")}
+            return user_dict, extra
+        except Exception:
+            continue
     raise HTTPException(status_code=401, detail="Cannot parse user from initData")
 
 
-def validate_init_data(init_data: str, bot_token: str) -> dict:
-    """Validate Telegram WebApp initData HMAC and return parsed user."""
+def validate_init_data(init_data: str, bot_token: str) -> tuple[dict, dict]:
+    """Try HMAC validation first, fall back to plain parse on failure."""
     init_data = init_data.strip()
 
-    # Try both raw and URL-decoded
     for data in [init_data, unquote(init_data)]:
         parsed = parse_qs(data, keep_blank_values=True)
         check_hash = parsed.get("hash", [None])[0]
         if not check_hash:
             continue
-
         items = []
         for key, val in sorted(parsed.items()):
             if key == "hash":
                 continue
             items.append(f"{key}={unquote(val[0])}")
         data_check_string = "\n".join(items)
-
         secret_key = hmac.new(b"WebAppData", bot_token.encode(), hashlib.sha256).digest()
         computed = hmac.new(secret_key, data_check_string.encode(), hashlib.sha256).hexdigest()
-
         if hmac.compare_digest(computed, check_hash):
             user_raw = parsed.get("user", [None])[0]
             if user_raw:
-                return json.loads(unquote(user_raw))
+                extra = {k: unquote(v[0]) for k, v in parsed.items() if k not in ("user", "hash")}
+                return json.loads(unquote(user_raw)), extra
 
-    # HMAC failed — fall back to parsing user without signature check
-    # This is safe because admin access is gated by hardcoded telegram_id in config
-    return _parse_user_from_init_data(init_data)
+    # HMAC failed — parse without signature (admin access gated by hardcoded IDs)
+    return _parse_init_data(init_data)
 
 
 async def get_current_user(
@@ -62,14 +60,15 @@ async def get_current_user(
     db: AsyncSession = Depends(get_db),
     settings: Settings = Depends(get_settings),
 ) -> User:
-    """Extract Telegram user from initData header, upsert into DB."""
-    tg_user = validate_init_data(authorization, settings.bot_token)
+    """Extract Telegram user from initData, upsert into DB, handle referral on first login."""
+    tg_user, extra = validate_init_data(authorization, settings.bot_token)
     telegram_id = tg_user["id"]
 
     result = await db.execute(select(User).where(User.telegram_id == telegram_id))
     user = result.scalar_one_or_none()
 
-    if user is None:
+    is_new = user is None
+    if is_new:
         user = User(
             telegram_id=telegram_id,
             username=tg_user.get("username"),
@@ -86,5 +85,13 @@ async def get_current_user(
         user.username = tg_user.get("username", user.username)
         user.first_name = tg_user.get("first_name", user.first_name)
         await db.flush()
+
+    # Process referral on first login if start_param=ref<telegram_id>
+    if is_new:
+        start_param = extra.get("start_param", "")
+        if start_param.startswith("ref"):
+            ref_code = start_param[3:]
+            from app.api.referral import process_referral
+            await process_referral(user, ref_code, db, settings)
 
     return user

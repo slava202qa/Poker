@@ -34,6 +34,7 @@ class TxType(str, enum.Enum):
     TOURNAMENT_PRIZE = "tournament_prize"
     BONUS = "bonus"
     FUN_REFILL = "fun_refill"
+    REFERRAL = "referral"
     SHOP_PURCHASE = "shop_purchase"
 
 

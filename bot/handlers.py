@@ -2,7 +2,7 @@ import logging
 import os
 from aiogram import Router, F
 from aiogram.types import Message, FSInputFile, ReplyKeyboardRemove
-from aiogram.filters import CommandStart, Command
+from aiogram.filters import CommandStart, Command, CommandObject
 from aiogram.fsm.context import FSMContext
 from aiogram.exceptions import TelegramBadRequest
 from keyboards import get_main_keyboard, get_webapp_button, get_admin_button, ADMIN_IDS
@@ -21,6 +21,14 @@ WELCOME_TEXT = (
     "\u2022 \u0423\u0447\u0430\u0441\u0442\u0438\u0435 \u0432 \u0435\u0436\u0435\u0434\u043d\u0435\u0432\u043d\u044b\u0445 \u0442\u0443\u0440\u043d\u0438\u0440\u0430\u0445\n"
     "\u2022 \u0423\u043f\u0440\u0430\u0432\u043b\u0435\u043d\u0438\u0435 \u041a\u043b\u0443\u0431\u043d\u044b\u043c\u0438 \u0410\u043a\u0442\u0438\u0432\u0430\u043c\u0438\n"
     "\u2022 \u0414\u043e\u0441\u0442\u0443\u043f \u043a VIP-\u0437\u0430\u043b\u0430\u043c\n\n"
+    "\U0001f447 \u041d\u0430\u0436\u043c\u0438 <b>\u2660\ufe0f \u0412\u0425\u041e\u0414 \u0412 \u0417\u0410\u041b</b>, \u0447\u0442\u043e\u0431\u044b \u043d\u0430\u0447\u0430\u0442\u044c \u0438\u0433\u0440\u0443."
+)
+
+REFERRAL_WELCOME = (
+    "\U0001f381 <b>\u0412\u0430\u0441 \u043f\u0440\u0438\u0433\u043b\u0430\u0441\u0438\u043b \u0434\u0440\u0443\u0433!</b>\n\n"
+    "\u0412\u044b \u043f\u0435\u0440\u0435\u0448\u043b\u0438 \u043f\u043e \u0440\u0435\u0444\u0435\u0440\u0430\u043b\u044c\u043d\u043e\u0439 \u0441\u0441\u044b\u043b\u043a\u0435. "
+    "\u041f\u0440\u0438\u0433\u043b\u0430\u0441\u0438\u0432\u0448\u0438\u0439 \u043f\u043e\u043b\u0443\u0447\u0438\u0442 \u0431\u043e\u043d\u0443\u0441, \u043a\u0430\u043a \u0442\u043e\u043b\u044c\u043a\u043e \u0432\u044b \u0437\u0430\u0439\u0434\u0451\u0442\u0435 \u0432 \u043a\u043b\u0443\u0431.\n\n"
+    "\u2660\ufe0f <b>Royal Roll Club</b> \u2014 \u0437\u0430\u043a\u0440\u044b\u0442\u044b\u0439 \u043f\u043e\u043a\u0435\u0440-\u043a\u043b\u0443\u0431 \u0432 \u0441\u0442\u0438\u043b\u0435 Black &amp; Gold.\n\n"
     "\U0001f447 \u041d\u0430\u0436\u043c\u0438 <b>\u2660\ufe0f \u0412\u0425\u041e\u0414 \u0412 \u0417\u0410\u041b</b>, \u0447\u0442\u043e\u0431\u044b \u043d\u0430\u0447\u0430\u0442\u044c \u0438\u0433\u0440\u0443."
 )
 
@@ -43,23 +51,30 @@ DEPOSIT_KEYWORDS = [
 
 
 @router.message(CommandStart())
-async def cmd_start(message: Message, state: FSMContext):
+async def cmd_start(message: Message, state: FSMContext, command: CommandObject):
     await state.clear()
+
+    # Remove old keyboard
     try:
-        rm = await message.answer("•", reply_markup=ReplyKeyboardRemove())
+        rm = await message.answer("\u2022", reply_markup=ReplyKeyboardRemove())
         await rm.delete()
     except TelegramBadRequest:
         pass
+
+    # Choose welcome text based on referral param
+    args = command.args or ""
+    text = REFERRAL_WELCOME if args.startswith("ref") else WELCOME_TEXT
+
     kb = get_main_keyboard(message.from_user.id)
     if os.path.exists(BANNER_PATH):
         await message.answer_photo(
             photo=FSInputFile(BANNER_PATH),
-            caption=WELCOME_TEXT,
+            caption=text,
             parse_mode="HTML",
             reply_markup=kb,
         )
     else:
-        await message.answer(WELCOME_TEXT, parse_mode="HTML", reply_markup=kb)
+        await message.answer(text, parse_mode="HTML", reply_markup=kb)
 
 
 @router.message(Command("admin"))

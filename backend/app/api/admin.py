@@ -845,3 +845,57 @@ async def admin_player_detail(
         total_withdrawn=float(withdrawn),
         joined_at=user.created_at.isoformat(),
     )
+
+
+# ── Referral settings ──
+
+class ReferralSettingsOut(BaseModel):
+    bonus_rr: int
+    total_referrals: int
+    total_bonus_paid: int
+
+
+class ReferralSettingsIn(BaseModel):
+    bonus_rr: int
+
+
+@router.get("/referral/settings", response_model=ReferralSettingsOut)
+async def get_referral_settings(
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_admin),
+    settings: Settings = Depends(get_settings),
+):
+    from app.models.referral import Referral
+    from sqlalchemy import func as sqlfunc
+    res = await db.execute(
+        select(sqlfunc.count(), sqlfunc.sum(Referral.bonus_paid))
+    )
+    row = res.one()
+    return ReferralSettingsOut(
+        bonus_rr=settings.referral_bonus_rr,
+        total_referrals=int(row[0] or 0),
+        total_bonus_paid=int(row[1] or 0),
+    )
+
+
+@router.post("/referral/settings")
+async def update_referral_bonus(
+    body: ReferralSettingsIn,
+    admin: User = Depends(require_admin),
+):
+    """Update referral bonus in .env file at runtime."""
+    import re
+    env_path = "/app/.env"
+    try:
+        text = open(env_path).read()
+        if "REFERRAL_BONUS_RR" in text:
+            text = re.sub(r"REFERRAL_BONUS_RR=\d+", f"REFERRAL_BONUS_RR={body.bonus_rr}", text)
+        else:
+            text += f"\nREFERRAL_BONUS_RR={body.bonus_rr}\n"
+        open(env_path, "w").write(text)
+        # Invalidate settings cache
+        from app.config import get_settings as _gs
+        _gs.cache_clear()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    return {"bonus_rr": body.bonus_rr}
