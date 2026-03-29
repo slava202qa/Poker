@@ -23,6 +23,7 @@ import Terms from './pages/Terms'
 import Info from './pages/Info'
 import Service from './pages/Service'
 import Referral from './pages/Referral'
+import Friends from './pages/Friends'
 
 export default function App() {
   const { tg, user: tgUser } = useTelegram()
@@ -69,6 +70,7 @@ export default function App() {
         <Route path="/info" element={<Info />} />
         <Route path="/service" element={<Service />} />
         <Route path="/referral" element={<Referral />} />
+        <Route path="/friends" element={<Friends />} />
         {/* Admin panel */}
         <Route path="/admin" element={<AdminLayout />}>
           <Route index element={<Dashboard />} />
