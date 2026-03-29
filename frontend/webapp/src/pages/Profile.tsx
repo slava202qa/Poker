@@ -202,6 +202,17 @@ export default function Profile() {
         </div>
       </motion.div>
 
+      <motion.button
+        initial={{ opacity: 0, y: 6 }}
+        animate={{ opacity: 1, y: 0 }}
+        onClick={() => navigate('/syndicates')}
+        className="w-full mb-3 rounded-2xl py-3 flex items-center justify-center gap-2 font-bold text-sm"
+        style={{ background: 'rgba(212,168,67,0.06)', border: '1px solid rgba(212,168,67,0.15)', color: '#d4a843' }}
+      >
+        <span>🔱</span>
+        <span>Синдикат</span>
+      </motion.button>
+
       {user && ADMIN_IDS.includes(user.telegram_id) && (
         <button
           onClick={() => navigate('/admin')}

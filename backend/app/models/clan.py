@@ -45,3 +45,27 @@ class ClanMember(Base):
     joined_at: Mapped[datetime.datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
+
+
+class ClanMessage(Base):
+    """Clan chat messages."""
+    __tablename__ = "clan_messages"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    clan_id: Mapped[int] = mapped_column(ForeignKey("clans.id"), index=True, nullable=False)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    text: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class ClanWeeklyScore(Base):
+    """Weekly leaderboard score per clan. Reset every Monday."""
+    __tablename__ = "clan_weekly_scores"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    clan_id: Mapped[int] = mapped_column(ForeignKey("clans.id"), index=True, nullable=False)
+    week_start: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    total_winnings: Mapped[float] = mapped_column(Numeric(18, 4), default=0)
+    hands_played: Mapped[int] = mapped_column(Integer, default=0)
