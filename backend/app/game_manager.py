@@ -28,7 +28,40 @@ HAND_RESTART_DELAY = 5.0  # seconds between hands
 async def _broadcast(table_id: int, state: dict):
     """Broadcast personalised state to all players at the table."""
     engine = _engines.get(table_id)
+    # Enrich player data with display names (NPC profiles + real user names)
+    await _enrich_player_names(state)
     await ws_manager.broadcast_to_table(table_id, state, engine=engine)
+
+
+async def _enrich_player_names(state: dict):
+    """Add display_name, is_npc, avatar fields to each player in state."""
+    from app.npc_manager import is_npc, get_npc_profile
+    players = state.get("players", [])
+    if not players:
+        return
+    # Collect real user IDs
+    real_ids = [p["user_id"] for p in players if not is_npc(p["user_id"])]
+    user_names: dict[int, tuple[str, str | None]] = {}
+    if real_ids:
+        async with async_session() as db:
+            from sqlalchemy import select as _select
+            from app.models.user import User
+            res = await db.execute(_select(User).where(User.telegram_id.in_(real_ids)))
+            for u in res.scalars():
+                name = u.first_name or u.username or f"Player{u.telegram_id}"
+                user_names[u.telegram_id] = (name, u.avatar_url)
+    for p in players:
+        uid = p["user_id"]
+        if is_npc(uid):
+            profile = get_npc_profile(uid) or {}
+            p["display_name"] = profile.get("name", "Bot")
+            p["avatar"] = profile.get("avatar", "npc_1")
+            p["is_npc"] = True
+        else:
+            name, avatar = user_names.get(uid, (f"Player{uid}", None))
+            p["display_name"] = name
+            p["avatar"] = avatar
+            p["is_npc"] = False
 
 
 def get_engine(table_id: int) -> GameEngine | None:
@@ -57,6 +90,9 @@ def get_or_create_engine(
     )
     _engines[table_id] = engine
     logger.info(f"Engine created for table {table_id} ({small_blind}/{big_blind}, rake={rake}%)")
+    # Start NPC monitor for this table
+    from app.npc_manager import start_npc_monitor
+    start_npc_monitor(table_id, small_blind, big_blind)
     return engine
 
 
@@ -82,8 +118,8 @@ def remove_engine(table_id: int):
 
 
 async def player_joined(table_id: int, user_id: int, seat: int, stack: float,
-                         small_blind: float, big_blind: float,
-                         rake_override: float | None = None):
+                         small_blind: float = 1.0, big_blind: float = 2.0,
+                         rake_override: float | None = None, is_npc: bool = False):
     """Called from tables API when a player joins. Wires them into the engine."""
     engine = get_or_create_engine(table_id, small_blind, big_blind,
                                    rake_override=rake_override)
@@ -228,6 +264,10 @@ async def _sync_stacks_to_db(table_id: int, engine: GameEngine):
             is_fun = tbl and tbl.currency == CurrencyType.FUN
 
             for uid, player in engine.players.items():
+                # Skip NPC bots — they have no DB records
+                from app.npc_manager import is_npc
+                if is_npc(uid):
+                    continue
                 result = await session.execute(
                     select(TablePlayer).where(
                         TablePlayer.table_id == table_id,
@@ -296,8 +336,9 @@ async def _update_player_stats(table_id: int, winners: list[dict]):
     if not engine:
         return
 
-    winner_ids = {w["user_id"] for w in winners}
-    winner_map = {w["user_id"]: w for w in winners}
+    from app.npc_manager import is_npc
+    winner_ids = {w["user_id"] for w in winners if not is_npc(w["user_id"])}
+    winner_map = {w["user_id"]: w for w in winners if not is_npc(w["user_id"])}
 
     try:
         async with async_session() as session:
