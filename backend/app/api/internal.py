@@ -94,4 +94,10 @@ async def listener_credit(body: ListenerCreditRequest, db: AsyncSession = Depend
     )
     db.add(tx)
     await db.flush()
+
+    # Pay referrer bonus on first deposit
+    from app.api.referral import pay_referrer_bonus
+    from app.config import get_settings as _gs
+    await pay_referrer_bonus(user.id, db, _gs())
+
     return {"status": "credited", "new_balance": float(balance.amount)}

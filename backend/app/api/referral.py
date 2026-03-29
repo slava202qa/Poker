@@ -1,5 +1,12 @@
-"""Referral system API."""
-from fastapi import APIRouter, Depends
+"""Referral system API v2.
+
+Bonus flow:
+- Referred user gets welcome_bonus_rr immediately on first login via ref link
+- Referrer gets referral_bonus_rr after referred user makes their first deposit
+- Anti-fraud: block if referrer and referred share the same IP hash
+"""
+import hashlib
+from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -21,7 +28,9 @@ class ReferralStats(BaseModel):
     invite_url: str
     invited_count: int
     earned_rr: int
+    pending_rr: int       # bonuses not yet paid (waiting for deposit)
     bonus_per_friend: int
+    welcome_bonus: int
 
 
 @router.get("/stats", response_model=ReferralStats)
@@ -34,20 +43,30 @@ async def get_referral_stats(
     invite_url = f"https://t.me/{BOT_USERNAME}?start=ref{ref_code}"
 
     result = await db.execute(
-        select(func.count(), func.sum(Referral.bonus_paid))
-        .where(Referral.referrer_id == user.id)
+        select(
+            func.count(),
+            func.sum(Referral.referrer_bonus).filter(Referral.referrer_bonus_paid == True),
+            func.sum(Referral.referrer_bonus).filter(Referral.referrer_bonus_paid == False),
+        ).where(Referral.referrer_id == user.id)
     )
     row = result.one()
     invited_count = int(row[0] or 0)
     earned_rr = int(row[1] or 0)
+    pending_rr = int(row[2] or 0)
 
     return ReferralStats(
         ref_code=ref_code,
         invite_url=invite_url,
         invited_count=invited_count,
         earned_rr=earned_rr,
+        pending_rr=pending_rr,
         bonus_per_friend=settings.referral_bonus_rr,
+        welcome_bonus=settings.referral_welcome_rr,
     )
+
+
+def _ip_hash(ip: str) -> str:
+    return hashlib.sha256(ip.encode()).hexdigest()[:32]
 
 
 async def process_referral(
@@ -55,8 +74,9 @@ async def process_referral(
     ref_code: str,
     db: AsyncSession,
     settings: Settings,
+    client_ip: str = "",
 ):
-    """Credit referrer when a new user joins via referral link."""
+    """Called on new user first login. Gives welcome bonus, records referral."""
     try:
         referrer_tg_id = int(ref_code)
     except (ValueError, TypeError):
@@ -70,30 +90,81 @@ async def process_referral(
     if not referrer:
         return
 
-    # Idempotent — one referral per referred user
+    # Idempotent
     existing = await db.execute(
         select(Referral).where(Referral.referred_id == referred_user.id)
     )
     if existing.scalar_one_or_none():
         return
 
-    bonus = settings.referral_bonus_rr
+    ip_h = _ip_hash(client_ip) if client_ip else None
 
-    db.add(Referral(
+    # Anti-fraud: check if referrer registered from same IP
+    if ip_h:
+        referrer_ref = await db.execute(
+            select(Referral).where(
+                Referral.referred_id == referrer.id,
+                Referral.referred_ip_hash == ip_h,
+            )
+        )
+        if referrer_ref.scalar_one_or_none():
+            return  # Same IP as referrer's own registration — block
+
+    welcome = settings.referral_welcome_rr
+
+    referral = Referral(
         referrer_id=referrer.id,
         referred_id=referred_user.id,
-        bonus_paid=bonus,
-    ))
+        referrer_bonus=settings.referral_bonus_rr,
+        referrer_bonus_paid=False,
+        welcome_bonus=welcome,
+        welcome_bonus_paid=False,
+        referred_ip_hash=ip_h,
+    )
+    db.add(referral)
 
-    bal_res = await db.execute(select(Balance).where(Balance.user_id == referrer.id))
+    # Give welcome bonus to referred user immediately
+    if welcome > 0:
+        bal_res = await db.execute(select(Balance).where(Balance.user_id == referred_user.id))
+        bal = bal_res.scalar_one_or_none()
+        if bal:
+            bal.amount = float(bal.amount) + welcome
+            db.add(Transaction(
+                user_id=referred_user.id,
+                tx_type=TxType.REFERRAL,
+                amount=welcome,
+                reference=f"welcome_bonus_ref_{referrer.telegram_id}",
+            ))
+            referral.welcome_bonus_paid = True
+
+    await db.flush()
+
+
+async def pay_referrer_bonus(referred_user_id: int, db: AsyncSession, settings: Settings):
+    """Called after referred user's first deposit. Pays referrer bonus."""
+    res = await db.execute(
+        select(Referral).where(
+            Referral.referred_id == referred_user_id,
+            Referral.referrer_bonus_paid == False,
+        )
+    )
+    referral = res.scalar_one_or_none()
+    if not referral:
+        return
+
+    bonus = referral.referrer_bonus
+    if bonus <= 0:
+        return
+
+    bal_res = await db.execute(select(Balance).where(Balance.user_id == referral.referrer_id))
     bal = bal_res.scalar_one_or_none()
     if bal:
         bal.amount = float(bal.amount) + bonus
         db.add(Transaction(
-            user_id=referrer.id,
+            user_id=referral.referrer_id,
             tx_type=TxType.REFERRAL,
             amount=bonus,
-            reference=f"ref_bonus_from_{referred_user.telegram_id}",
+            reference=f"ref_bonus_from_{referred_user_id}",
         ))
-
-    await db.flush()
+        referral.referrer_bonus_paid = True
+        await db.flush()

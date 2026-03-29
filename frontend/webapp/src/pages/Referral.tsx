@@ -7,7 +7,9 @@ interface ReferralStats {
   invite_url: string
   invited_count: number
   earned_rr: number
+  pending_rr: number
   bonus_per_friend: number
+  welcome_bonus: number
 }
 
 export default function Referral() {
@@ -21,10 +23,8 @@ export default function Referral() {
 
   function handleShare() {
     if (!stats) return
-    const text = `🃏 Играю в Royal Roll — закрытый покер-клуб. Заходи по моей ссылке и получи бонус!\n${stats.invite_url}`
-    // Telegram share URL
-    const tgShare = `https://t.me/share/url?url=${encodeURIComponent(stats.invite_url)}&text=${encodeURIComponent('🃏 Играю в Royal Roll — закрытый покер-клуб. Заходи и получи бонус при регистрации!')}`
-    window.open(tgShare, "_blank")
+    const tgShare = `https://t.me/share/url?url=${encodeURIComponent(stats.invite_url)}&text=${encodeURIComponent('🃏 Вступай в закрытый покерный клуб Royal Roll! По моей ссылке получишь ' + stats.welcome_bonus + ' RR на счёт сразу!')}`
+    window.open(tgShare, '_blank')
   }
 
   function handleCopy() {
@@ -38,20 +38,18 @@ export default function Referral() {
   return (
     <div className="min-h-screen pb-24 px-4 pt-5">
 
-      {/* Header */}
       <motion.div initial={{ y: -10, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="mb-6">
         <h1 className="text-xl font-extrabold text-poker-gold tracking-wide">Пригласи друга</h1>
         <p className="text-xs text-gray-500 mt-1">
-          Получай <span className="text-poker-gold font-bold">{stats?.bonus_per_friend ?? 500} RR</span> за каждого нового игрока
+          Ты получаешь <span className="text-poker-gold font-bold">{stats?.bonus_per_friend ?? 500} RR</span> после первого пополнения друга.
+          Друг получает <span className="text-white font-bold">{stats?.welcome_bonus ?? 100} RR</span> сразу.
         </p>
       </motion.div>
 
-      {/* Stats cards */}
+      {/* Stats */}
       <motion.div
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-        className="grid grid-cols-2 gap-3 mb-5"
+        initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
+        className="grid grid-cols-2 gap-3 mb-4"
       >
         <div className="card-surface p-4 text-center rounded-2xl">
           <div className="text-2xl font-extrabold text-white">{stats?.invited_count ?? 0}</div>
@@ -65,11 +63,24 @@ export default function Referral() {
         </div>
       </motion.div>
 
+      {/* Pending bonus */}
+      {(stats?.pending_rr ?? 0) > 0 && (
+        <motion.div
+          initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+          className="rounded-2xl p-3 mb-4 flex items-center gap-3"
+          style={{ background: 'rgba(212,168,67,0.06)', border: '1px solid rgba(212,168,67,0.2)' }}
+        >
+          <span className="text-xl">⏳</span>
+          <div>
+            <p className="text-xs font-bold text-poker-gold">{stats!.pending_rr} RR ожидают выплаты</p>
+            <p className="text-[10px] text-gray-500">Начислятся после первого пополнения друга</p>
+          </div>
+        </motion.div>
+      )}
+
       {/* Invite link */}
       <motion.div
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.15 }}
+        initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
         className="card-surface rounded-2xl p-4 mb-4"
       >
         <p className="text-[11px] text-gray-500 mb-2 font-medium">Твоя реферальная ссылка</p>
@@ -96,9 +107,7 @@ export default function Referral() {
 
       {/* Share button */}
       <motion.button
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2 }}
+        initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
         onClick={handleShare}
         className="btn-gold w-full py-4 text-sm font-bold rounded-2xl flex items-center justify-center gap-2"
       >
@@ -108,16 +117,14 @@ export default function Referral() {
 
       {/* How it works */}
       <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.3 }}
+        initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }}
         className="mt-6 card-surface rounded-2xl p-4"
       >
         <p className="text-xs font-bold text-white mb-3">Как это работает</p>
         {[
           { icon: '🔗', text: 'Поделись своей ссылкой с другом' },
-          { icon: '👤', text: 'Друг открывает бота и заходит в клуб' },
-          { icon: '💰', text: `Ты получаешь ${stats?.bonus_per_friend ?? 500} RR мгновенно` },
+          { icon: '🎁', text: `Друг получает ${stats?.welcome_bonus ?? 100} RR сразу при регистрации` },
+          { icon: '💰', text: `Ты получаешь ${stats?.bonus_per_friend ?? 500} RR после первого пополнения друга` },
           { icon: '♾️', text: 'Количество приглашений не ограничено' },
         ].map((item, i) => (
           <div key={i} className="flex items-center gap-3 py-2 border-b last:border-0"

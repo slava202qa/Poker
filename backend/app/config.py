@@ -32,7 +32,8 @@ class Settings(BaseSettings):
     auto_pay_usd_limit: float = 100.0
 
     # Admin — comma-separated Telegram IDs
-    referral_bonus_rr: int = 500  # RR credited to referrer per new user
+    referral_bonus_rr: int = 500
+    referral_welcome_rr: int = 100
     admin_ids: str = ""
 
     @property

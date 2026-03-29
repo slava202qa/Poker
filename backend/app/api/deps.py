@@ -3,7 +3,7 @@ import hashlib
 import hmac
 import json
 from urllib.parse import unquote, parse_qs
-from fastapi import Depends, HTTPException, Header
+from fastapi import Depends, HTTPException, Header, Request
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import get_settings, Settings
@@ -56,6 +56,7 @@ def validate_init_data(init_data: str, bot_token: str) -> tuple[dict, dict]:
 
 
 async def get_current_user(
+    request: Request,
     authorization: str = Header(..., alias="X-Init-Data"),
     db: AsyncSession = Depends(get_db),
     settings: Settings = Depends(get_settings),
@@ -92,6 +93,7 @@ async def get_current_user(
         if start_param.startswith("ref"):
             ref_code = start_param[3:]
             from app.api.referral import process_referral
-            await process_referral(user, ref_code, db, settings)
+            client_ip = request.headers.get("X-Real-IP") or request.headers.get("X-Forwarded-For", "").split(",")[0].strip() or (request.client.host if request.client else "")
+            await process_referral(user, ref_code, db, settings, client_ip)
 
     return user
