@@ -23,3 +23,5 @@ htmlcov/
 *.swo
 frontend/webapp/node_modules/
 frontend/webapp/dist/
+contracts/blueprint_deploy/node_modules/
+backend/.venv/
