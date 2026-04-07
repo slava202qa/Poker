@@ -165,11 +165,20 @@ async def _get_seqno(address: str, settings) -> int | None:
 async def process_pending_withdrawals():
     """
     Background task: process queued withdrawals.
-    Reads pending withdrawal transactions from DB and sends them on-chain.
+
+    Reads pending withdrawal transactions from DB.
+    For each pending tx:
+    - Parses wallet address from reference field
+    - Calls PokerVault contract (op=0x04) to send TON directly to player
+    - Falls back to Jetton transfer if contract not configured
     """
     from sqlalchemy import select
     from app.database import async_session
     from app.models.balance import Transaction, TxType
+    from app.config import get_settings
+    from app.ton.contract import send_player_withdrawal
+
+    settings = get_settings()
 
     try:
         async with async_session() as session:
@@ -187,13 +196,33 @@ async def process_pending_withdrawals():
                 if not tx.reference:
                     continue
 
-                wallet = tx.reference.replace("withdraw_to:", "")
-                amount = abs(float(tx.amount))
+                # Reference format: "withdraw:{currency}:{amount_crypto}:{wallet}:{review_flag}:pending"
+                parts = tx.reference.split(":")
+                if len(parts) < 4:
+                    continue
 
-                tx_hash = await send_jetton_transfer(wallet, amount)
+                wallet_addr = parts[3]
+                amount_rr = abs(float(tx.amount))
+                review_flag = parts[4] if len(parts) > 4 else "manual"
+
+                # Skip manual review items — admin must approve first
+                if review_flag == "manual":
+                    logger.info(f"Withdrawal tx {tx.id} requires manual review, skipping")
+                    continue
+
+                # Try contract-based withdrawal first
+                if settings.contract_address:
+                    result_data = await send_player_withdrawal(wallet_addr, amount_rr)
+                    tx_hash = result_data.get("tx_hash") if result_data.get("status") == "sent" else None
+                else:
+                    # Fallback: direct Jetton transfer
+                    tx_hash = await send_jetton_transfer(wallet_addr, amount_rr)
+
                 if tx_hash:
                     tx.ton_tx_hash = tx_hash
-                    logger.info(f"Withdrawal processed: {tx_hash}")
+                    # Update reference to mark as processed
+                    tx.reference = tx.reference.replace(":pending", ":sent")
+                    logger.info(f"Withdrawal processed: tx_id={tx.id} hash={tx_hash}")
                 else:
                     logger.warning(f"Withdrawal failed for tx {tx.id}, will retry")
 

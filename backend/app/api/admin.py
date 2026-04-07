@@ -14,12 +14,12 @@ from app.database import get_db
 from app.api.deps import get_current_user
 from app.config import get_settings, Settings
 from app.models.user import User
-from app.models.balance import Balance, Transaction, TxType
+from app.models.balance import Balance, Transaction, TxType, CurrencyType
 from app.models.table import PokerTable, TablePlayer, TableStatus
-from app.models.tournament import Tournament, TournamentPlayer, TournamentStatus
+from app.models.tournament import Tournament, TournamentPlayer, TournamentStatus, TournamentType
 from app.models.shop import ShopItem, ItemType, ItemRarity
 
-UPLOAD_DIR = "/app/uploads"
+UPLOAD_DIR = os.environ.get("UPLOAD_DIR", "/app/uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -95,7 +95,15 @@ class CreateTournamentRequest(BaseModel):
     fee: float
     starting_stack: float
     max_players: int = 100
+    min_players: int = 2
     starts_at: datetime.datetime
+    tournament_type: str = "freezeout"
+    seats_per_table: int = 6
+    blind_level_minutes: int = 10
+    late_reg_levels: int = 3
+    guaranteed_prize: float = 0
+    is_private: bool = False
+    password: str | None = None
 
 
 class UpdateTournamentRequest(BaseModel):
@@ -267,6 +275,7 @@ async def adjust_balance(
     balance.amount = float(balance.amount) + body.amount
     tx = Transaction(
         user_id=user_id,
+        currency=CurrencyType.CHIP,
         tx_type=TxType.BONUS,
         amount=body.amount,
         balance_after=float(balance.amount),
@@ -369,10 +378,22 @@ async def admin_create_tournament(
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
+    import hashlib as _hl
+    pw_hash = _hl.sha256(body.password.encode()).hexdigest() if body.is_private and body.password else None
+    try:
+        ttype = TournamentType(body.tournament_type)
+    except ValueError:
+        ttype = TournamentType.FREEZEOUT
+
     t = Tournament(
         name=body.name, buy_in=body.buy_in, fee=body.fee,
         starting_stack=body.starting_stack, max_players=body.max_players,
-        starts_at=body.starts_at,
+        min_players=body.min_players, starts_at=body.starts_at,
+        tournament_type=ttype, seats_per_table=body.seats_per_table,
+        blind_level_minutes=body.blind_level_minutes,
+        late_reg_levels=body.late_reg_levels,
+        guaranteed_prize=body.guaranteed_prize,
+        is_private=body.is_private, password_hash=pw_hash,
     )
     db.add(t)
     await db.flush()
@@ -893,9 +914,37 @@ async def update_referral_bonus(
         else:
             text += f"\nREFERRAL_BONUS_RR={body.bonus_rr}\n"
         open(env_path, "w").write(text)
-        # Invalidate settings cache
         from app.config import get_settings as _gs
         _gs.cache_clear()
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     return {"bonus_rr": body.bonus_rr}
+
+
+# ── Contract / Finance ────────────────────────────────────────────────────────
+
+class OwnerWithdrawRequest(BaseModel):
+    amount_rr: float = 0  # 0 = withdraw all accumulated fees
+
+
+@router.get("/contract/balance")
+async def contract_balance(admin: User = Depends(require_admin)):
+    """Return PokerVault contract TON balance."""
+    from app.ton.contract import get_contract_balance
+    nano = await get_contract_balance()
+    return {
+        "balance_nano": nano,
+        "balance_ton": round(nano / 1_000_000_000, 4) if nano >= 0 else None,
+        "contract_address": get_settings().contract_address or "not configured",
+    }
+
+
+@router.post("/contract/withdraw_fees")
+async def withdraw_contract_fees(
+    body: OwnerWithdrawRequest,
+    admin: User = Depends(require_admin),
+):
+    """Withdraw accumulated platform fees from PokerVault contract to owner wallet."""
+    from app.ton.contract import owner_withdraw_fees
+    result = await owner_withdraw_fees(body.amount_rr)
+    return result

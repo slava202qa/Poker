@@ -12,17 +12,33 @@ class TournamentStatus(str, enum.Enum):
     CANCELLED = "cancelled"
 
 
+class TournamentType(str, enum.Enum):
+    FREEZEOUT = "freezeout"
+    REENTRY = "reentry"
+    PKO = "pko"
+
+
 class Tournament(Base):
     __tablename__ = "tournaments"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String(128), nullable=False)
     buy_in: Mapped[float] = mapped_column(Numeric(18, 4), nullable=False)
-    fee: Mapped[float] = mapped_column(Numeric(18, 4), nullable=False)  # platform commission
+    fee: Mapped[float] = mapped_column(Numeric(18, 4), nullable=False)
     starting_stack: Mapped[float] = mapped_column(Numeric(18, 4), nullable=False)
     max_players: Mapped[int] = mapped_column(Integer, default=100)
+    min_players: Mapped[int] = mapped_column(Integer, default=2)
     current_players: Mapped[int] = mapped_column(Integer, default=0)
     prize_pool: Mapped[float] = mapped_column(Numeric(18, 4), default=0)
+    guaranteed_prize: Mapped[float] = mapped_column(Numeric(18, 4), default=0)
+    tournament_type: Mapped[TournamentType] = mapped_column(
+        Enum(TournamentType), default=TournamentType.FREEZEOUT, nullable=False
+    )
+    seats_per_table: Mapped[int] = mapped_column(Integer, default=6)
+    blind_level_minutes: Mapped[int] = mapped_column(Integer, default=10)
+    late_reg_levels: Mapped[int] = mapped_column(Integer, default=3)
+    is_private: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    password_hash: Mapped[str | None] = mapped_column(String(128), nullable=True)
     status: Mapped[TournamentStatus] = mapped_column(
         Enum(TournamentStatus), default=TournamentStatus.REGISTERING
     )

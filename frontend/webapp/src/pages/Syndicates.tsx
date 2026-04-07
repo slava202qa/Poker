@@ -98,7 +98,7 @@ export default function Syndicates() {
   async function joinSyndicate(id: number) {
     try {
       await api.post(`/syndicates/join/${id}`)
-      flash('Вступил в синдикат!')
+      flash('Вступил в картель!')
       loadMy()
       api.get<Syndicate[]>('/syndicates/list').then(setSyndicates)
       setTab('my')
@@ -108,7 +108,7 @@ export default function Syndicates() {
   async function leaveSyndicate() {
     try {
       await api.post('/syndicates/leave')
-      flash('Вышел из синдиката')
+      flash('Вышел из картеля')
       setMySyndicate(null)
       api.get<Syndicate[]>('/syndicates/list').then(setSyndicates)
     } catch (e: any) { flash(e.message || 'Ошибка') }
@@ -119,7 +119,7 @@ export default function Syndicates() {
       const s = await api.post<Syndicate>('/syndicates/create', createForm)
       setMySyndicate(s)
       setShowCreate(false)
-      flash('Синдикат создан!')
+      flash('Картель создан!')
       setTab('my')
     } catch (e: any) { flash(e.message || 'Ошибка') }
   }
@@ -131,7 +131,7 @@ export default function Syndicates() {
 
       {/* Header */}
       <motion.div initial={{ y: -10, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="mb-5">
-        <h1 className="text-xl font-extrabold text-white">Синдикаты</h1>
+        <h1 className="text-xl font-extrabold text-white">⚔️ Картели</h1>
         <p className="text-xs text-gray-500 mt-0.5">Объединяйся, играй, побеждай вместе</p>
       </motion.div>
 
@@ -169,11 +169,11 @@ export default function Syndicates() {
           {mySyndicate === null && (
             <div className="text-center py-10">
               <p className="text-5xl mb-4">🔱</p>
-              <p className="text-white font-bold text-lg mb-1">Ты не в синдикате</p>
+              <p className="text-white font-bold text-lg mb-1">Ты не в картеле</p>
               <p className="text-gray-500 text-sm mb-6">Вступи в существующий или создай свой за 500 RR</p>
               <div className="flex gap-3 justify-center">
                 <button onClick={() => setTab('list')} className="btn-gold px-6 py-3 text-sm rounded-xl font-bold">
-                  Найти синдикат
+                  Найти картель
                 </button>
                 <button onClick={() => setShowCreate(true)}
                   className="px-6 py-3 text-sm rounded-xl font-bold"
@@ -207,7 +207,7 @@ export default function Syndicates() {
                 <div className="grid grid-cols-3 gap-3">
                   {[
                     { label: 'Участников', value: mySyndicate.member_count },
-                    { label: 'XP клана', value: mySyndicate.total_xp.toLocaleString() },
+                    { label: 'XP картеля', value: mySyndicate.total_xp.toLocaleString() },
                     { label: 'Роль', value: mySyndicate.my_role === 'owner' ? '👑 Лидер' : mySyndicate.my_role === 'officer' ? '⭐ Офицер' : '👤 Участник' },
                   ].map(s => (
                     <div key={s.label} className="text-center rounded-xl py-2.5"
@@ -232,12 +232,12 @@ export default function Syndicates() {
 
               {innerTab === 'info' && (
                 <div className="space-y-3">
-                  <p className="text-xs text-gray-500">Создай стол и пригласи участников синдиката для совместной игры.</p>
+                  <p className="text-xs text-gray-500">Создай стол и пригласи участников картеля для совместной игры.</p>
                   {mySyndicate.my_role !== 'owner' && (
                     <button onClick={leaveSyndicate}
                       className="w-full py-3 rounded-xl text-sm font-bold"
                       style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: '#f87171' }}>
-                      Покинуть синдикат
+                      Покинуть картель
                     </button>
                   )}
                 </div>
@@ -312,7 +312,7 @@ export default function Syndicates() {
             <button onClick={() => setShowCreate(true)}
               className="w-full py-3.5 rounded-2xl text-sm font-bold flex items-center justify-center gap-2"
               style={{ background: 'rgba(212,168,67,0.08)', border: '1px dashed rgba(212,168,67,0.3)', color: '#d4a843' }}>
-              + Создать синдикат (500 RR)
+              + Создать картель (500 RR)
             </button>
           )}
           {syndicates.map(s => (
@@ -341,7 +341,7 @@ export default function Syndicates() {
             </div>
           ))}
           {syndicates.length === 0 && (
-            <p className="text-center text-gray-600 text-sm py-8">Синдикатов пока нет</p>
+            <p className="text-center text-gray-600 text-sm py-8">Картелей пока нет</p>
           )}
         </motion.div>
       )}
@@ -349,7 +349,7 @@ export default function Syndicates() {
       {/* LEADERBOARD */}
       {tab === 'leaderboard' && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-          <p className="text-xs text-gray-500 mb-4">Рейтинг синдикатов за текущую неделю</p>
+          <p className="text-xs text-gray-500 mb-4">Рейтинг картелей за текущую неделю</p>
           <div className="space-y-2">
             {leaderboard.map(e => (
               <div key={e.clan_id} className="card-surface rounded-2xl p-4 flex items-center gap-3">
@@ -385,10 +385,10 @@ export default function Syndicates() {
             <motion.div initial={{ y: 60 }} animate={{ y: 0 }} exit={{ y: 60 }}
               className="w-full max-w-lg rounded-t-3xl p-6"
               style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)' }}>
-              <h3 className="text-lg font-extrabold text-white mb-5">Создать синдикат</h3>
+              <h3 className="text-lg font-extrabold text-white mb-5">Создать картель</h3>
               <div className="space-y-3 mb-5">
                 <input value={createForm.name} onChange={e => setCreateForm(f => ({ ...f, name: e.target.value }))}
-                  placeholder="Название синдиката"
+                  placeholder="Название картеля"
                   className="w-full rounded-xl px-4 py-3 text-sm"
                   style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'white' }} />
                 <input value={createForm.tag} onChange={e => setCreateForm(f => ({ ...f, tag: e.target.value.toUpperCase().slice(0, 5) }))}

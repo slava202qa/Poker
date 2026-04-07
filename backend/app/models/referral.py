@@ -20,6 +20,9 @@ class Referral(Base):
     welcome_bonus: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     welcome_bonus_paid: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
+    # +5% first deposit bonus for referred user — paid once on first deposit
+    first_deposit_bonus_paid: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+
     # Anti-fraud: store IP hash at registration time
     referred_ip_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
 

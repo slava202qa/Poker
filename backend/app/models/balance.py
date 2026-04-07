@@ -15,6 +15,8 @@ class Balance(Base):
     fun_last_refill: Mapped[datetime.datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    # Syndicate rake bonus — accumulated, claimed manually by user
+    bonus_balance: Mapped[float] = mapped_column(Numeric(18, 4), default=0, nullable=False)
 
     user: Mapped["User"] = relationship(back_populates="balance")
 
@@ -35,6 +37,8 @@ class TxType(str, enum.Enum):
     BONUS = "bonus"
     FUN_REFILL = "fun_refill"
     REFERRAL = "referral"
+    SYNDICATE_RAKE = "syndicate_rake"   # rake share credited to bonus_balance
+    SYNDICATE_CLAIM = "syndicate_claim" # user claims bonus_balance → main balance
     SHOP_PURCHASE = "shop_purchase"
 
 

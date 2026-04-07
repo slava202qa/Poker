@@ -72,7 +72,7 @@ app.add_middleware(
 app.include_router(api_router)
 
 # Serve uploaded images
-_upload_dir = "/app/uploads"
+_upload_dir = os.environ.get("UPLOAD_DIR", "/app/uploads")
 os.makedirs(_upload_dir, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=_upload_dir), name="uploads")
 
