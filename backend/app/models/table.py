@@ -12,6 +12,11 @@ class TableStatus(str, enum.Enum):
     PAUSED = "paused"
 
 
+class PokerType(str, enum.Enum):
+    HOLDEM = "holdem"
+    OMAHA = "omaha"
+
+
 class PokerTable(Base):
     __tablename__ = "poker_tables"
 
@@ -20,11 +25,19 @@ class PokerTable(Base):
     currency: Mapped[CurrencyType] = mapped_column(
         Enum(CurrencyType), default=CurrencyType.CHIP, nullable=False
     )
-    max_players: Mapped[int] = mapped_column(Integer, default=9)
+    poker_type: Mapped[PokerType] = mapped_column(
+        Enum(PokerType), default=PokerType.HOLDEM, nullable=False
+    )
+    max_players: Mapped[int] = mapped_column(Integer, default=6)
     small_blind: Mapped[float] = mapped_column(Numeric(18, 4), nullable=False)
     big_blind: Mapped[float] = mapped_column(Numeric(18, 4), nullable=False)
     min_buy_in: Mapped[float] = mapped_column(Numeric(18, 4), nullable=False)
     max_buy_in: Mapped[float] = mapped_column(Numeric(18, 4), nullable=False)
+    action_timer: Mapped[int] = mapped_column(Integer, default=30)  # seconds per turn
+    is_private: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    password_hash: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    invite_token: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    creator_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     status: Mapped[TableStatus] = mapped_column(Enum(TableStatus), default=TableStatus.WAITING)
     current_players: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime.datetime] = mapped_column(

@@ -113,20 +113,23 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
-      {/* Referral settings */}
+      {/* Contract balance */}
+      <ContractPanel />
+
+      {/* Syndicate settings */}
       <div>
-        <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-3">Рефералы</h3>
+        <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-3">Синдикат</h3>
         <div className="card-surface p-4 space-y-3">
           <div className="flex justify-between">
-            <span className="text-gray-400">Всего приглашений</span>
+            <span className="text-gray-400">Всего агентов завербовано</span>
             <span className="text-white font-bold">{refSettings?.total_referrals ?? 0}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-gray-400">Выплачено бонусов</span>
+            <span className="text-gray-400">Выплачено бонусов Синдиката</span>
             <span className="text-poker-gold font-bold">{refSettings?.total_bonus_paid ?? 0} RR</span>
           </div>
           <div className="border-t border-poker-border pt-3">
-            <p className="text-xs text-gray-500 mb-2">Бонус за приглашение (RR)</p>
+            <p className="text-xs text-gray-500 mb-2">Бонус за вербовку агента (RR)</p>
             <div className="flex gap-2">
               <input
                 type="number"
@@ -147,6 +150,62 @@ export default function Dashboard() {
               </button>
             </div>
           </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function ContractPanel() {
+  const api = useApi()
+  const [balance, setBalance] = useState<{ balance_ton: number | null; contract_address: string } | null>(null)
+  const [withdrawing, setWithdrawing] = useState(false)
+  const [msg, setMsg] = useState('')
+
+  useEffect(() => {
+    api.get<any>('/admin/contract/balance').then(setBalance).catch(() => {})
+  }, [])
+
+  const handleWithdraw = async () => {
+    setWithdrawing(true)
+    setMsg('')
+    try {
+      const res = await api.post<any>('/admin/contract/withdraw_fees', { amount_rr: 0 })
+      setMsg(res.status === 'sent' ? `✅ Отправлено tx: ${res.tx_hash}` : `⚠️ ${res.detail || res.status}`)
+    } catch (e: any) {
+      setMsg(`❌ ${e.message}`)
+    } finally {
+      setWithdrawing(false)
+    }
+  }
+
+  return (
+    <div>
+      <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-3">PokerVault Контракт</h3>
+      <div className="card-surface p-4 space-y-3">
+        <div className="flex justify-between items-center">
+          <span className="text-gray-400 text-sm">Баланс контракта</span>
+          <span className="text-white font-bold">
+            {balance?.balance_ton != null ? `${balance.balance_ton} TON` : '—'}
+          </span>
+        </div>
+        <div className="flex justify-between items-center">
+          <span className="text-gray-400 text-xs truncate flex-1 mr-2">Адрес</span>
+          <span className="text-[10px] text-gray-600 font-mono truncate max-w-[160px]">
+            {balance?.contract_address || 'не настроен'}
+          </span>
+        </div>
+        <div className="border-t border-poker-border pt-3">
+          <p className="text-xs text-gray-500 mb-2">Вывести накопленные комиссии платформы на кошелёк владельца</p>
+          <button
+            onClick={handleWithdraw}
+            disabled={withdrawing || !balance?.contract_address || balance.contract_address === 'not configured'}
+            className="w-full py-2 rounded-xl text-xs font-bold transition-all disabled:opacity-40"
+            style={{ background: 'rgba(212,168,67,0.1)', border: '1px solid rgba(212,168,67,0.25)', color: '#d4a843' }}
+          >
+            {withdrawing ? 'Отправляем...' : '💰 Вывести комиссии'}
+          </button>
+          {msg && <p className="text-xs mt-2" style={{ color: msg.startsWith('✅') ? '#4ade80' : '#f87171' }}>{msg}</p>}
         </div>
       </div>
     </div>

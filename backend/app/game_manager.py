@@ -298,8 +298,10 @@ async def _sync_stacks_to_db(table_id: int, engine: GameEngine):
 
 
 async def _record_rake(table_id: int, rake_amount: float):
-    """Record rake as a system transaction."""
+    """Record rake as a system transaction and distribute syndicate shares."""
     from app.models.balance import Transaction, TxType
+    from app.models.table import TablePlayer
+    from app.api.referral import distribute_rake_syndicate
 
     if rake_amount <= 0:
         return
@@ -307,14 +309,28 @@ async def _record_rake(table_id: int, rake_amount: float):
     try:
         async with async_session() as session:
             # user_id=0 represents the system/house account
+            from app.models.balance import CurrencyType as _CT
             tx = Transaction(
                 user_id=0,
+                currency=_CT.CHIP,
                 tx_type=TxType.RAKE,
                 amount=rake_amount,
-                balance_after=0,  # system account — tracked separately
+                balance_after=0,
                 reference=f"table:{table_id}",
             )
             session.add(tx)
+
+            # Distribute syndicate rake shares to referrers of all players at table
+            engine = _engines.get(table_id)
+            if engine:
+                from app.npc_manager import is_npc
+                real_players = [uid for uid in engine.players if not is_npc(uid)]
+                if real_players:
+                    # Split rake evenly among real players for syndicate distribution
+                    per_player_rake = rake_amount / len(real_players)
+                    for uid in real_players:
+                        await distribute_rake_syndicate(uid, per_player_rake, session)
+
             await session.commit()
             logger.info(f"Rake recorded: {rake_amount:.4f} from table {table_id}")
     except Exception as e:

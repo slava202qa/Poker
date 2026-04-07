@@ -9,7 +9,7 @@ from app.database import get_db
 from app.api.deps import get_current_user
 from app.config import get_settings, Settings
 from app.models.user import User
-from app.models.balance import Balance, Transaction, TxType
+from app.models.balance import Balance, Transaction, TxType, CurrencyType
 from app.models.clan import Clan, ClanMember, ClanRole, ClanMessage, ClanWeeklyScore
 
 router = APIRouter(prefix="/syndicates", tags=["syndicates"])
@@ -154,7 +154,9 @@ async def create_syndicate(
 
     bal.amount = float(bal.amount) - CREATION_COST
     db.add(Transaction(
-        user_id=user.id, tx_type=TxType.BONUS, amount=-CREATION_COST,
+        user_id=user.id, currency=CurrencyType.CHIP,
+        tx_type=TxType.BONUS, amount=-CREATION_COST,
+        balance_after=float(bal.amount),
         reference="syndicate_creation",
     ))
 

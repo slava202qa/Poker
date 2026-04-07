@@ -1,0 +1,232 @@
+;; ============================================================
+;; Royal Roll — PokerVault Smart Contract (TON FunC)
+;; ============================================================
+;;
+;; Responsibilities:
+;;   1. Accept TON deposits from players (op=0x01)
+;;   2. Accept tournament buy-in payments (op=0x02)
+;;      - Holds funds until tournament ends
+;;      - On finalize (op=0x03): deducts 10% platform fee,
+;;        distributes remainder to winners list
+;;   3. Accept withdrawal requests from backend (op=0x04)
+;;      - Only owner can trigger payouts to player wallets
+;;   4. Owner can withdraw platform balance (op=0xFF)
+;;
+;; Storage layout (cell):
+;;   owner_address: MsgAddress
+;;   platform_balance: uint64  (accumulated fees, in nanoTON)
+;;   tournament_id: uint32     (last processed tournament)
+;;
+;; All amounts in nanoTON (1 TON = 1_000_000_000 nanoTON)
+;; ============================================================
+
+#include "stdlib.fc";
+
+;; ── Op codes ──────────────────────────────────────────────
+const int op::deposit          = 0x01;
+const int op::tournament_entry = 0x02;
+const int op::finalize_tourney = 0x03;
+const int op::player_withdraw  = 0x04;
+const int op::owner_withdraw   = 0xFF;
+
+;; Platform commission: 10% = 100 / 1000
+const int PLATFORM_FEE_NUM = 100;
+const int PLATFORM_FEE_DEN = 1000;
+
+;; Minimum gas reserve to keep contract alive
+const int MIN_RESERVE = 50000000;  ;; 0.05 TON
+
+;; ── Storage helpers ───────────────────────────────────────
+
+(slice, int, int) load_data() inline {
+    var ds = get_data().begin_parse();
+    return (
+        ds~load_msg_addr(),   ;; owner_address
+        ds~load_uint(64),     ;; platform_balance
+        ds~load_uint(32)      ;; last_tournament_id
+    );
+}
+
+() save_data(slice owner, int platform_bal, int last_tid) impure inline {
+    set_data(
+        begin_cell()
+            .store_slice(owner)
+            .store_uint(platform_bal, 64)
+            .store_uint(last_tid, 32)
+        .end_cell()
+    );
+}
+
+;; ── Address equality check ────────────────────────────────
+
+int equal_slices(slice a, slice b) asm "SDEQ";
+
+;; ── Main recv_internal ────────────────────────────────────
+
+() recv_internal(int my_balance, int msg_value, cell in_msg_full, slice in_msg_body) impure {
+    if (in_msg_body.slice_empty?()) { return (); }  ;; plain TON transfer — accept
+
+    var cs = in_msg_full.begin_parse();
+    var flags = cs~load_uint(4);
+    if (flags & 1) { return (); }  ;; ignore bounced
+
+    slice sender = cs~load_msg_addr();
+
+    int op = in_msg_body~load_uint(32);
+    int query_id = in_msg_body~load_uint(64);
+
+    var (owner, platform_bal, last_tid) = load_data();
+
+    ;; ── op::deposit (0x01) ──────────────────────────────
+    ;; Player sends TON to deposit. Contract just holds it.
+    ;; Backend credits RR after confirming on-chain.
+    if (op == op::deposit) {
+        ;; Accept — funds are now held in contract balance
+        ;; Emit log event for backend listener
+        var log = begin_cell()
+            .store_uint(op::deposit, 32)
+            .store_uint(query_id, 64)
+            .store_slice(sender)
+            .store_uint(msg_value, 64)
+        .end_cell();
+        send_raw_message(
+            begin_cell()
+                .store_uint(0x10, 6)
+                .store_slice(owner)
+                .store_coins(0)
+                .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
+                .store_ref(log)
+            .end_cell(),
+            64  ;; carry remaining gas
+        );
+        save_data(owner, platform_bal, last_tid);
+        return ();
+    }
+
+    ;; ── op::tournament_entry (0x02) ─────────────────────
+    ;; Player pays tournament buy-in. Funds held until finalize.
+    if (op == op::tournament_entry) {
+        int tournament_id = in_msg_body~load_uint(32);
+        ;; Funds are held in contract. Backend tracks entries.
+        save_data(owner, platform_bal, last_tid);
+        return ();
+    }
+
+    ;; ── op::finalize_tourney (0x03) ─────────────────────
+    ;; Only owner can call. Distributes prize pool to winners.
+    ;; Body: tournament_id (32) + total_pool (64) + winners_count (8)
+    ;;       + [winner_addr (MsgAddress) + prize_nano (64)] * N
+    if (op == op::finalize_tourney) {
+        throw_unless(401, equal_slices(sender, owner));
+
+        int tournament_id = in_msg_body~load_uint(32);
+        int total_pool    = in_msg_body~load_uint(64);
+        int winners_count = in_msg_body~load_uint(8);
+
+        ;; Calculate platform fee (10%)
+        int fee = (total_pool * PLATFORM_FEE_NUM) / PLATFORM_FEE_DEN;
+        int distributable = total_pool - fee;
+
+        platform_bal += fee;
+
+        ;; Send prizes to each winner
+        int i = 0;
+        while (i < winners_count) {
+            slice winner_addr = in_msg_body~load_msg_addr();
+            int prize = in_msg_body~load_uint(64);
+
+            ;; Cap prize to distributable (safety)
+            if (prize > distributable) { prize = distributable; }
+
+            send_raw_message(
+                begin_cell()
+                    .store_uint(0x18, 6)
+                    .store_slice(winner_addr)
+                    .store_coins(prize)
+                    .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
+                    .store_uint(0, 32)  ;; empty body
+                .end_cell(),
+                1  ;; pay from contract balance
+            );
+            i += 1;
+        }
+
+        save_data(owner, platform_bal, tournament_id);
+        return ();
+    }
+
+    ;; ── op::player_withdraw (0x04) ──────────────────────
+    ;; Backend-initiated payout to a player wallet.
+    ;; Only owner can call.
+    ;; Body: player_addr (MsgAddress) + amount_nano (64)
+    if (op == op::player_withdraw) {
+        throw_unless(401, equal_slices(sender, owner));
+
+        slice player_addr = in_msg_body~load_msg_addr();
+        int amount = in_msg_body~load_uint(64);
+
+        ;; Keep minimum reserve
+        throw_unless(402, my_balance - amount >= MIN_RESERVE);
+
+        send_raw_message(
+            begin_cell()
+                .store_uint(0x18, 6)
+                .store_slice(player_addr)
+                .store_coins(amount)
+                .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
+                .store_uint(op::player_withdraw, 32)
+                .store_uint(query_id, 64)
+            .end_cell(),
+            1
+        );
+        save_data(owner, platform_bal, last_tid);
+        return ();
+    }
+
+    ;; ── op::owner_withdraw (0xFF) ───────────────────────
+    ;; Owner withdraws accumulated platform fees to their wallet.
+    if (op == op::owner_withdraw) {
+        throw_unless(401, equal_slices(sender, owner));
+
+        int amount = in_msg_body~load_uint(64);
+        if (amount == 0) { amount = platform_bal; }  ;; 0 = withdraw all fees
+
+        throw_unless(403, platform_bal >= amount);
+        throw_unless(402, my_balance - amount >= MIN_RESERVE);
+
+        platform_bal -= amount;
+
+        send_raw_message(
+            begin_cell()
+                .store_uint(0x18, 6)
+                .store_slice(owner)
+                .store_coins(amount)
+                .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
+                .store_uint(op::owner_withdraw, 32)
+                .store_uint(query_id, 64)
+            .end_cell(),
+            1
+        );
+        save_data(owner, platform_bal, last_tid);
+        return ();
+    }
+
+    throw(0xffff);  ;; unknown op
+}
+
+;; ── Getters ───────────────────────────────────────────────
+
+slice get_owner() method_id {
+    var (owner, _, _) = load_data();
+    return owner;
+}
+
+int get_platform_balance() method_id {
+    var (_, platform_bal, _) = load_data();
+    return platform_bal;
+}
+
+int get_last_tournament_id() method_id {
+    var (_, _, last_tid) = load_data();
+    return last_tid;
+}

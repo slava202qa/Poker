@@ -146,6 +146,7 @@ async def deposit_confirm(
     amount_rr: float,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
+    settings: Settings = Depends(get_settings),
 ):
     """Called by blockchain listener after verifying tx on-chain."""
     if amount_rr <= 0:
@@ -161,6 +162,7 @@ async def deposit_confirm(
     balance.amount = float(balance.amount) + amount_rr
     tx = Transaction(
         user_id=user.id,
+        currency=CurrencyType.CHIP,
         tx_type=TxType.DEPOSIT,
         amount=amount_rr,
         balance_after=float(balance.amount),
@@ -169,6 +171,11 @@ async def deposit_confirm(
     )
     db.add(tx)
     await db.flush()
+
+    # Syndicate: pay referrer bonus + +5% first deposit bonus for referred user
+    from app.api.referral import pay_referrer_bonus
+    await pay_referrer_bonus(user.id, amount_rr, db, settings)
+
     return {"status": "credited", "new_balance": float(balance.amount)}
 
 
@@ -200,6 +207,7 @@ async def withdraw(
 
     tx = Transaction(
         user_id=user.id,
+        currency=CurrencyType.CHIP,
         tx_type=TxType.WITHDRAW,
         amount=-body.amount_rr,
         balance_after=float(balance.amount),

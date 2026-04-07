@@ -13,10 +13,16 @@ class Settings(BaseSettings):
 
     # TON
     ton_api_url: str = "https://toncenter.com/api/v2"
+    toncenter_url: str = "https://toncenter.com/api/v2"
     ton_api_key: str = ""
+    toncenter_api_key: str = ""
     jetton_master_address: str = ""
     system_wallet_address: str = ""
     ton_mnemonics: str = ""
+
+    # PokerVault smart contract
+    contract_address: str = ""       # deployed contract address
+    owner_mnemonic: str = ""         # 24-word owner wallet mnemonic (secret)
 
     # App
     secret_key: str = "change-me"

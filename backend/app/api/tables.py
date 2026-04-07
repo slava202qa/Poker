@@ -1,3 +1,5 @@
+import hashlib
+import secrets
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy import select
@@ -5,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.api.deps import get_current_user
 from app.models.user import User
-from app.models.table import PokerTable, TablePlayer, TableStatus
+from app.models.table import PokerTable, TablePlayer, TableStatus, PokerType
 from app.models.balance import Balance, Transaction, TxType, CurrencyType
 from app import game_manager
 
@@ -16,11 +18,15 @@ class TableResponse(BaseModel):
     id: int
     name: str
     currency: str
+    poker_type: str
     max_players: int
     small_blind: float
     big_blind: float
     min_buy_in: float
     max_buy_in: float
+    action_timer: int
+    is_private: bool
+    invite_token: str | None
     status: str
     current_players: int
 
@@ -31,16 +37,21 @@ class TableResponse(BaseModel):
 class CreateTableRequest(BaseModel):
     name: str
     currency: str = "chip"
-    max_players: int = 9
+    poker_type: str = "holdem"
+    max_players: int = 6
     small_blind: float
     big_blind: float
     min_buy_in: float
     max_buy_in: float
+    action_timer: int = 30
+    is_private: bool = False
+    password: str | None = None
 
 
 class JoinTableRequest(BaseModel):
     buy_in: float
     seat: int
+    password: str | None = None
 
 
 class SeatInfo(BaseModel):
@@ -51,12 +62,20 @@ class SeatInfo(BaseModel):
     is_sitting_out: bool
 
 
+def _hash_password(pw: str) -> str:
+    return hashlib.sha256(pw.encode()).hexdigest()
+
+
 def _table_to_response(t: PokerTable) -> TableResponse:
     return TableResponse(
         id=t.id, name=t.name, currency=t.currency.value,
+        poker_type=t.poker_type.value if t.poker_type else "holdem",
         max_players=t.max_players,
         small_blind=float(t.small_blind), big_blind=float(t.big_blind),
         min_buy_in=float(t.min_buy_in), max_buy_in=float(t.max_buy_in),
+        action_timer=t.action_timer if t.action_timer else 30,
+        is_private=t.is_private,
+        invite_token=t.invite_token if t.is_private else None,
         status=t.status.value, current_players=t.current_players,
     )
 
@@ -88,18 +107,48 @@ async def create_table(
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid currency, use 'chip' or 'fun'")
 
+    try:
+        ptype = PokerType(body.poker_type)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid poker_type, use 'holdem' or 'omaha'")
+
+    if body.max_players not in (2, 6, 9):
+        raise HTTPException(status_code=400, detail="max_players must be 2, 6 or 9")
+
+    if body.action_timer not in (15, 30):
+        raise HTTPException(status_code=400, detail="action_timer must be 15 or 30")
+
+    pw_hash = _hash_password(body.password) if body.is_private and body.password else None
+    invite_token = secrets.token_urlsafe(12) if body.is_private else None
+
     table = PokerTable(
         name=body.name,
         currency=cur,
+        poker_type=ptype,
         max_players=body.max_players,
         small_blind=body.small_blind,
         big_blind=body.big_blind,
         min_buy_in=body.min_buy_in,
         max_buy_in=body.max_buy_in,
+        action_timer=body.action_timer,
+        is_private=body.is_private,
+        password_hash=pw_hash,
+        invite_token=invite_token,
+        creator_id=user.id,
     )
     db.add(table)
     await db.flush()
     await db.refresh(table)
+    return _table_to_response(table)
+
+
+@router.get("/invite/{token}", response_model=TableResponse)
+async def get_table_by_invite(token: str, db: AsyncSession = Depends(get_db)):
+    """Resolve a private table invite link."""
+    result = await db.execute(select(PokerTable).where(PokerTable.invite_token == token))
+    table = result.scalar_one_or_none()
+    if not table:
+        raise HTTPException(status_code=404, detail="Invite link not found or expired")
     return _table_to_response(table)
 
 
@@ -155,6 +204,13 @@ async def join_table(
     table = result.scalar_one_or_none()
     if not table:
         raise HTTPException(status_code=404, detail="Table not found")
+
+    # Private table — check password
+    if table.is_private and table.password_hash:
+        if not body.password:
+            raise HTTPException(status_code=403, detail="Требуется пароль стола")
+        if _hash_password(body.password) != table.password_hash:
+            raise HTTPException(status_code=403, detail="Неверный пароль")
 
     if table.current_players >= table.max_players:
         raise HTTPException(status_code=400, detail="Table is full")
