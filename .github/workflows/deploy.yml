@@ -24,10 +24,12 @@ jobs:
             git fetch origin main
             git reset --hard origin/main
 
-            # Rebuild and restart all services
-            docker compose up --build -d --remove-orphans
+            # Clean restart to avoid container name conflicts
+            docker compose down --remove-orphans
+            docker container prune -f
+            docker compose up --build -d
 
-            # Wait for DB to be healthy
+            # Wait for DB
             echo "Waiting for DB..."
             for i in $(seq 1 30); do
               docker compose exec -T db pg_isready -U poker && break || sleep 2
