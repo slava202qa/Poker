@@ -14,10 +14,28 @@ jobs:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          port: ${{ secrets.VPS_PORT || 22 }}
+          port: 22
+          command_timeout: 10m
           script: |
+            set -e
             cd /opt/poker
-            git pull origin main
-            docker compose up --build -d
-            docker compose exec -T backend alembic upgrade head || true
-            echo "Deploy complete"
+
+            # Pull latest code
+            git fetch origin main
+            git reset --hard origin/main
+
+            # Rebuild and restart all services
+            docker compose up --build -d --remove-orphans
+
+            # Wait for DB to be healthy
+            echo "Waiting for DB..."
+            for i in $(seq 1 30); do
+              docker compose exec -T db pg_isready -U poker && break || sleep 2
+            done
+
+            # Run migrations
+            docker compose exec -T backend alembic upgrade head
+
+            # Show status
+            docker compose ps
+            echo "=== Deploy complete ==="
