@@ -375,57 +375,73 @@ export default function Syndicates() {
         </motion.div>
       )}
 
-      {/* CREATE MODAL */}
+      {/* CREATE MODAL — fullscreen with scroll */}
       <AnimatePresence>
         {showCreate && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-end justify-center"
-            style={{ background: 'rgba(0,0,0,0.7)' }}
-            onClick={e => e.target === e.currentTarget && setShowCreate(false)}>
-            <motion.div initial={{ y: 60 }} animate={{ y: 0 }} exit={{ y: 60 }}
-              className="w-full max-w-lg rounded-t-3xl p-6"
-              style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)' }}>
-              <h3 className="text-lg font-extrabold text-white mb-5">Создать картель</h3>
-              <div className="space-y-3 mb-5">
-                <input value={createForm.name} onChange={e => setCreateForm(f => ({ ...f, name: e.target.value }))}
-                  placeholder="Название картеля"
-                  className="w-full rounded-xl px-4 py-3 text-sm"
-                  style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'white' }} />
-                <input value={createForm.tag} onChange={e => setCreateForm(f => ({ ...f, tag: e.target.value.toUpperCase().slice(0, 5) }))}
-                  placeholder="Тег [2-5 букв]"
-                  className="w-full rounded-xl px-4 py-3 text-sm"
-                  style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'white' }} />
-                <input value={createForm.description} onChange={e => setCreateForm(f => ({ ...f, description: e.target.value }))}
-                  placeholder="Описание (необязательно)"
-                  className="w-full rounded-xl px-4 py-3 text-sm"
-                  style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'white' }} />
-                <div>
-                  <p className="text-xs text-gray-500 mb-2">Иконка</p>
-                  <div className="flex gap-2 flex-wrap">
-                    {ICONS.map(icon => (
-                      <button key={icon} onClick={() => setCreateForm(f => ({ ...f, icon }))}
-                        className="w-10 h-10 rounded-xl text-xl flex items-center justify-center transition-all"
-                        style={{ background: createForm.icon === icon ? 'rgba(212,168,67,0.2)' : 'rgba(255,255,255,0.05)', border: createForm.icon === icon ? '1px solid rgba(212,168,67,0.5)' : '1px solid transparent' }}>
-                        {icon}
-                      </button>
-                    ))}
-                  </div>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed z-50 flex flex-col"
+            style={{ background: '#0d0d0d', top: 0, left: 0, right: 0, bottom: 0, height: '100dvh' }}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between px-4 pt-5 pb-3 flex-shrink-0"
+              style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+              <h3 className="text-lg font-extrabold text-white">⚔️ Создать картель</h3>
+              <button onClick={() => setShowCreate(false)}
+                className="w-9 h-9 rounded-xl flex items-center justify-center text-gray-400 text-xl"
+                style={{ background: 'rgba(255,255,255,0.06)' }}>✕</button>
+            </div>
+
+            {/* Scrollable content */}
+            <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4" style={{ WebkitOverflowScrolling: 'touch' }}>
+              <input value={createForm.name} onChange={e => setCreateForm(f => ({ ...f, name: e.target.value }))}
+                placeholder="Название картеля"
+                className="w-full rounded-xl px-4 py-3.5 text-sm outline-none"
+                style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: 'white' }} />
+              <input value={createForm.tag} onChange={e => setCreateForm(f => ({ ...f, tag: e.target.value.toUpperCase().slice(0, 5) }))}
+                placeholder="Тег [2-5 букв], например ROYAL"
+                className="w-full rounded-xl px-4 py-3.5 text-sm outline-none"
+                style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: 'white' }} />
+              <input value={createForm.description} onChange={e => setCreateForm(f => ({ ...f, description: e.target.value }))}
+                placeholder="Описание (необязательно)"
+                className="w-full rounded-xl px-4 py-3.5 text-sm outline-none"
+                style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: 'white' }} />
+              <div>
+                <p className="text-xs text-gray-500 mb-3">Иконка картеля</p>
+                <div className="grid grid-cols-6 gap-2">
+                  {ICONS.map(icon => (
+                    <button key={icon} onClick={() => setCreateForm(f => ({ ...f, icon }))}
+                      className="h-12 rounded-xl text-2xl flex items-center justify-center transition-all"
+                      style={{
+                        background: createForm.icon === icon ? 'rgba(212,168,67,0.2)' : 'rgba(255,255,255,0.05)',
+                        border: createForm.icon === icon ? '2px solid rgba(212,168,67,0.6)' : '1px solid rgba(255,255,255,0.06)',
+                      }}>
+                      {icon}
+                    </button>
+                  ))}
                 </div>
               </div>
-              <p className="text-xs text-gray-500 mb-4">Стоимость создания: <span className="text-poker-gold font-bold">500 RR</span></p>
-              <div className="flex gap-3">
-                <button onClick={() => setShowCreate(false)}
-                  className="flex-1 py-3 rounded-xl text-sm font-bold text-gray-400"
-                  style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}>
-                  Отмена
-                </button>
-                <button onClick={createSyndicate}
-                  disabled={!createForm.name || !createForm.tag}
-                  className="flex-1 btn-gold py-3 rounded-xl text-sm font-bold disabled:opacity-40">
-                  Создать
-                </button>
+              <div className="rounded-xl p-3" style={{ background: 'rgba(212,168,67,0.06)', border: '1px solid rgba(212,168,67,0.15)' }}>
+                <p className="text-xs text-gray-400">Стоимость создания: <span className="text-poker-gold font-bold">500 RR</span></p>
               </div>
-            </motion.div>
+            </div>
+
+            {/* Fixed bottom buttons — always visible */}
+            <div className="flex-shrink-0 px-4 pt-3 flex gap-3"
+              style={{ borderTop: '1px solid rgba(255,255,255,0.06)', background: '#0d0d0d', paddingBottom: 'max(env(safe-area-inset-bottom), 24px)' }}>
+              <button onClick={() => setShowCreate(false)}
+                className="flex-1 py-4 rounded-xl text-sm font-bold text-gray-400"
+                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                Отмена
+              </button>
+              <button onClick={createSyndicate}
+                disabled={!createForm.name || !createForm.tag}
+                className="flex-1 btn-gold py-4 rounded-xl text-sm font-bold disabled:opacity-40">
+                Создать картель
+              </button>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>

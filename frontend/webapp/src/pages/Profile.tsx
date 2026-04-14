@@ -219,7 +219,7 @@ export default function Profile() {
           className="w-full mb-4 rounded-2xl py-3 flex items-center justify-center gap-2 font-bold text-sm"
           style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: '#f87171' }}
         >
-          u2699ufe0f u0410u0434u043cu0438u043d u043fu0430u043du0435u043bu044c
+          ⚙️ Админ панель
         </button>
       )}
 

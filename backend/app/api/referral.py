@@ -26,8 +26,8 @@ router = APIRouter(prefix="/referral", tags=["referral"])
 
 BOT_USERNAME = "POKER_VIP_1_Bot"
 
-RAKE_SHARE_L1 = 0.10
-RAKE_SHARE_L2 = 0.03
+RAKE_SHARE_L1 = 0.20   # Level 1: 20% of rake from direct agents
+RAKE_SHARE_L2 = 0.05   # Level 2: 5% of rake from agents of agents
 FIRST_DEPOSIT_BONUS_PCT = 0.05
 
 

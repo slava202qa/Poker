@@ -137,10 +137,10 @@ export default function Tables() {
           className="text-lg font-extrabold tracking-tight">
           {isVip ? '♠ VIP Столы' : '♣ Открытые Столы'}
         </motion.h2>
-        <button onClick={() => { setShowCreate(!showCreate); setCreateError(''); setCreatedTable(null) }}
+        <button onClick={() => { setShowCreate(true); setCreateError(''); setCreatedTable(null) }}
           className="text-xs font-bold px-3 py-2 rounded-xl transition-all"
-          style={{ background: showCreate ? 'rgba(239,68,68,0.1)' : 'rgba(212,168,67,0.1)', border: `1px solid ${showCreate ? 'rgba(239,68,68,0.25)' : 'rgba(212,168,67,0.25)'}`, color: showCreate ? '#f87171' : '#d4a843' }}>
-          {showCreate ? '✕ Закрыть' : '+ Создать стол'}
+          style={{ background: 'rgba(212,168,67,0.1)', border: '1px solid rgba(212,168,67,0.25)', color: '#d4a843' }}>
+          + Создать стол
         </button>
       </div>
 
@@ -164,21 +164,34 @@ export default function Tables() {
         )}
       </AnimatePresence>
 
+      {/* Create table — fullscreen modal */}
       <AnimatePresence>
         {showCreate && (
-          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }} className="overflow-hidden mb-5">
-            <div className="rounded-2xl p-4 space-y-4"
-              style={{ background: '#1c1c1c', border: '1px solid rgba(212,168,67,0.2)' }}>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            className="fixed z-50 flex flex-col"
+            style={{ background: '#0d0d0d', top: 0, left: 0, right: 0, bottom: 0, height: '100dvh' }}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between px-4 pt-5 pb-3 flex-shrink-0"
+              style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+              <h3 className="text-lg font-extrabold text-poker-gold">♠ Создать стол</h3>
+              <button onClick={() => { setShowCreate(false); setCreateError('') }}
+                className="w-9 h-9 rounded-xl flex items-center justify-center text-gray-400 text-xl"
+                style={{ background: 'rgba(255,255,255,0.06)' }}>✕</button>
+            </div>
 
-              <h3 className="font-extrabold text-sm text-poker-gold">Создать стол</h3>
+            {/* Scrollable body */}
+            <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
 
               <div>
                 <label className="text-[10px] text-gray-500 uppercase tracking-wider mb-1 block">Название стола</label>
                 <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
                   placeholder="Например: Ночной Картель"
-                  className="w-full rounded-xl px-3 py-2.5 text-sm text-white outline-none"
-                  style={{ background: '#121212', border: '1px solid rgba(255,255,255,0.1)' }} />
+                  className="w-full rounded-xl px-3 py-3 text-sm text-white outline-none"
+                  style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }} />
               </div>
 
               <div>
@@ -186,8 +199,8 @@ export default function Tables() {
                 <div className="grid grid-cols-2 gap-2">
                   {[{ val: 'holdem', label: '♠ Техасский Холдем', desc: 'Стандарт' }, { val: 'omaha', label: '♦ Омаха', desc: 'Агрессивный' }].map(opt => (
                     <button key={opt.val} onClick={() => setForm(f => ({ ...f, poker_type: opt.val }))}
-                      className="rounded-xl p-2.5 text-left transition-all"
-                      style={{ background: form.poker_type === opt.val ? 'rgba(212,168,67,0.12)' : 'rgba(255,255,255,0.03)', border: `1px solid ${form.poker_type === opt.val ? 'rgba(212,168,67,0.4)' : 'rgba(255,255,255,0.08)'}` }}>
+                      className="rounded-xl p-3 text-left transition-all"
+                      style={{ background: form.poker_type === opt.val ? 'rgba(212,168,67,0.12)' : 'rgba(255,255,255,0.04)', border: `1px solid ${form.poker_type === opt.val ? 'rgba(212,168,67,0.4)' : 'rgba(255,255,255,0.08)'}` }}>
                       <p className="text-xs font-bold text-white">{opt.label}</p>
                       <p className="text-[10px] text-gray-600">{opt.desc}</p>
                     </button>
@@ -200,7 +213,7 @@ export default function Tables() {
                 <div className="grid grid-cols-4 gap-1.5 mb-2">
                   {BLIND_PRESETS.map(p => (
                     <button key={p.label} onClick={() => applyBlindPreset(p.sb, p.bb)}
-                      className="py-2 rounded-xl text-xs font-bold transition-all"
+                      className="py-2.5 rounded-xl text-xs font-bold transition-all"
                       style={{ background: form.big_blind === p.bb ? 'rgba(212,168,67,0.15)' : 'rgba(255,255,255,0.04)', border: `1px solid ${form.big_blind === p.bb ? 'rgba(212,168,67,0.4)' : 'rgba(255,255,255,0.06)'}`, color: form.big_blind === p.bb ? '#d4a843' : '#6b7280' }}>
                       {p.label}
                     </button>
@@ -212,8 +225,8 @@ export default function Tables() {
                       <label className="text-[10px] text-gray-600 mb-1 block">{f.label}</label>
                       <input type="number" value={(form as any)[f.key]}
                         onChange={e => setForm(prev => ({ ...prev, [f.key]: +e.target.value }))}
-                        className="w-full rounded-xl px-3 py-2 text-sm text-white outline-none"
-                        style={{ background: '#121212', border: '1px solid rgba(255,255,255,0.1)' }} />
+                        className="w-full rounded-xl px-3 py-2.5 text-sm text-white outline-none"
+                        style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }} />
                     </div>
                   ))}
                 </div>
@@ -225,8 +238,8 @@ export default function Tables() {
                     <label className="text-[10px] text-gray-500 uppercase tracking-wider mb-1 block">{f.label}</label>
                     <input type="number" value={(form as any)[f.key]}
                       onChange={e => setForm(prev => ({ ...prev, [f.key]: +e.target.value }))}
-                      className="w-full rounded-xl px-3 py-2 text-sm text-white outline-none"
-                      style={{ background: '#121212', border: '1px solid rgba(255,255,255,0.1)' }} />
+                      className="w-full rounded-xl px-3 py-2.5 text-sm text-white outline-none"
+                      style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }} />
                   </div>
                 ))}
               </div>
@@ -237,7 +250,7 @@ export default function Tables() {
                   <div className="grid grid-cols-3 gap-1">
                     {[{ n: 2, l: 'Дуэль' }, { n: 6, l: '6-max' }, { n: 9, l: 'Full' }].map(({ n, l }) => (
                       <button key={n} onClick={() => setForm(f => ({ ...f, max_players: n }))}
-                        className="py-2 rounded-xl text-[10px] font-bold transition-all"
+                        className="py-2.5 rounded-xl text-[10px] font-bold transition-all"
                         style={{ background: form.max_players === n ? 'rgba(212,168,67,0.15)' : 'rgba(255,255,255,0.04)', border: `1px solid ${form.max_players === n ? 'rgba(212,168,67,0.4)' : 'rgba(255,255,255,0.06)'}`, color: form.max_players === n ? '#d4a843' : '#6b7280' }}>
                         {l}
                       </button>
@@ -249,7 +262,7 @@ export default function Tables() {
                   <div className="grid grid-cols-2 gap-1">
                     {[{ val: 30, label: 'Норма 30с' }, { val: 15, label: 'Турбо 15с' }].map(t => (
                       <button key={t.val} onClick={() => setForm(f => ({ ...f, action_timer: t.val }))}
-                        className="py-2 rounded-xl text-[10px] font-bold transition-all"
+                        className="py-2.5 rounded-xl text-[10px] font-bold transition-all"
                         style={{ background: form.action_timer === t.val ? 'rgba(212,168,67,0.15)' : 'rgba(255,255,255,0.04)', border: `1px solid ${form.action_timer === t.val ? 'rgba(212,168,67,0.4)' : 'rgba(255,255,255,0.06)'}`, color: form.action_timer === t.val ? '#d4a843' : '#6b7280' }}>
                         {t.label}
                       </button>
@@ -263,8 +276,8 @@ export default function Tables() {
                 <div className="grid grid-cols-2 gap-2 mb-2">
                   {[{ val: false, label: '🌐 Публичный', desc: 'Виден всем' }, { val: true, label: '🔒 Приватный', desc: 'По паролю' }].map(opt => (
                     <button key={String(opt.val)} onClick={() => setForm(f => ({ ...f, is_private: opt.val }))}
-                      className="rounded-xl p-2.5 text-left transition-all"
-                      style={{ background: form.is_private === opt.val ? 'rgba(212,168,67,0.12)' : 'rgba(255,255,255,0.03)', border: `1px solid ${form.is_private === opt.val ? 'rgba(212,168,67,0.4)' : 'rgba(255,255,255,0.08)'}` }}>
+                      className="rounded-xl p-3 text-left transition-all"
+                      style={{ background: form.is_private === opt.val ? 'rgba(212,168,67,0.12)' : 'rgba(255,255,255,0.04)', border: `1px solid ${form.is_private === opt.val ? 'rgba(212,168,67,0.4)' : 'rgba(255,255,255,0.08)'}` }}>
                       <p className="text-xs font-bold text-white">{opt.label}</p>
                       <p className="text-[10px] text-gray-600">{opt.desc}</p>
                     </button>
@@ -274,15 +287,19 @@ export default function Tables() {
                   <input type="password" value={form.password}
                     onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
                     placeholder="Пароль для входа"
-                    className="w-full rounded-xl px-3 py-2.5 text-sm text-white outline-none"
-                    style={{ background: '#121212', border: '1px solid rgba(212,168,67,0.3)' }} />
+                    className="w-full rounded-xl px-3 py-3 text-sm text-white outline-none"
+                    style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(212,168,67,0.3)' }} />
                 )}
               </div>
 
-              {createError && <p className="text-xs text-red-400">{createError}</p>}
+              {createError && <p className="text-sm text-red-400 text-center">{createError}</p>}
+            </div>
 
+            {/* Fixed bottom — always visible */}
+            <div className="flex-shrink-0 px-4 pt-3"
+              style={{ borderTop: '1px solid rgba(255,255,255,0.06)', background: '#0d0d0d', paddingBottom: 'max(env(safe-area-inset-bottom), 24px)' }}>
               <button onClick={handleCreate} disabled={creating}
-                className="w-full btn-gold py-3 text-sm font-bold rounded-xl disabled:opacity-50">
+                className="w-full btn-gold py-4 text-sm font-bold rounded-xl disabled:opacity-50">
                 {creating ? 'Создаём...' : '⚔️ Создать стол'}
               </button>
             </div>

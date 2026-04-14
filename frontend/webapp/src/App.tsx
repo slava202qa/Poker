@@ -25,6 +25,7 @@ import Service from './pages/Service'
 import Referral from './pages/Referral'
 import Friends from './pages/Friends'
 import Syndicates from './pages/Syndicates'
+import Deposit from './pages/Deposit'
 
 export default function App() {
   const { tg, user: tgUser } = useTelegram()
@@ -73,6 +74,7 @@ export default function App() {
         <Route path="/referral" element={<Referral />} />
         <Route path="/friends" element={<Friends />} />
         <Route path="/syndicates" element={<Syndicates />} />
+        <Route path="/deposit" element={<Deposit />} />
         {/* Admin panel */}
         <Route path="/admin" element={<AdminLayout />}>
           <Route index element={<Dashboard />} />

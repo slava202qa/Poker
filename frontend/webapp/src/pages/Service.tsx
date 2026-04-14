@@ -1,32 +1,59 @@
 import { motion } from 'framer-motion'
+import { useNavigate } from 'react-router-dom'
 import { useTelegram } from '../hooks/useTelegram'
 import { useStore } from '../store/useStore'
 
-// Admin Telegram username — change here if needed
+// Bot username for deposit/exchange requests
 const MANAGER_USERNAME = 'POKER_VIP_1_Bot'
+// Your personal Telegram for support — players will write directly to you
+const SUPPORT_USERNAME = 'slava202qa'
 
 function tgLink(text: string) {
   return `https://t.me/${MANAGER_USERNAME}?start=${encodeURIComponent(text)}`
 }
 
+const FAQ_ITEMS = [
+  {
+    q: 'Что такое Royal Roll (RR)?',
+    a: 'RR — это внутриигровые баллы (виртуальные активы), используемые исключительно внутри мини-приложения Royal Roll для участия в игровых механиках, кастомизации профиля и открытия новых уровней.',
+  },
+  {
+    q: 'Имеют ли RR реальную стоимость?',
+    a: 'Нет. Внутриигровые активы RR не являются денежными средствами, ценными бумагами или криптовалютой. Они не имеют реальной рыночной стоимости за пределами приложения и предназначены только для развлекательных целей.',
+  },
+  {
+    q: 'Безопасность и прозрачность',
+    a: 'Все операции по приобретению пакетов активов проходят через защищённые протоколы. Мы используем систему клубного членства, где каждый участник добровольно приобретает игровые очки для использования внутри сообщества.',
+  },
+  {
+    q: 'Политика возврата',
+    a: 'Согласно правилам цифрового контента, приобретённые игровые активы обмену и возврату не подлежат. В случае возникновения технических сбоев при начислении, пожалуйста, обратитесь в Поддержку (VIP Service).',
+  },
+  {
+    q: 'Ответственная игра',
+    a: 'Мы поддерживаем принципы честной и ответственной игры. Мини-приложение создано для развлечения. Пожалуйста, контролируйте своё время и ресурсы, затрачиваемые на игру.',
+  },
+]
+
 export default function Service() {
   const { user: tgUser } = useTelegram()
   const user = useStore((s) => s.user)
+  const navigate = useNavigate()
   const uid = user?.telegram_id ?? tgUser?.id ?? ''
 
   const actions = [
     {
       icon: '💳',
-      title: 'Пополнить Активы (RR)',
-      desc: 'Связаться с менеджером для пополнения клубных активов',
-      link: tgLink(`Заявка на пополнение RR | ID: ${uid}`),
+      title: 'Приобрести Активы (RR)',
+      desc: 'Пополнить баланс через TON кошелёк',
+      onClick: () => navigate('/deposit?tab=buy'),
       gold: true,
     },
     {
       icon: '🔄',
       title: 'Обменять Награды',
-      desc: 'Заявка на обмен клубных наград',
-      link: tgLink(`Заявка на обмен клубных наград | ID: ${uid}`),
+      desc: 'Вывести RR на TON кошелёк',
+      onClick: () => navigate('/deposit?tab=exchange'),
       gold: false,
     },
   ]
@@ -43,15 +70,13 @@ export default function Service() {
       {/* Main action buttons */}
       <div className="space-y-3 mb-6">
         {actions.map((a, i) => (
-          <motion.a
+          <motion.button
             key={a.title}
-            href={a.link}
-            target="_blank"
-            rel="noreferrer"
+            onClick={a.onClick}
             initial={{ x: -12, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
             transition={{ delay: i * 0.07 }}
-            className="flex items-center gap-4 p-5 rounded-2xl transition-all active:scale-[0.98] block"
+            className="w-full flex items-center gap-4 p-5 rounded-2xl transition-all active:scale-[0.98]"
             style={a.gold ? {
               background: 'linear-gradient(135deg, #1e1a0e 0%, #1c1c1c 100%)',
               border: '1px solid rgba(212,168,67,0.3)',
@@ -68,7 +93,7 @@ export default function Service() {
               }>
               {a.icon}
             </div>
-            <div className="flex-1 min-w-0">
+            <div className="flex-1 min-w-0 text-left">
               <div className="font-bold text-sm" style={{ color: a.gold ? '#d4a843' : 'white' }}>
                 {a.title}
               </div>
@@ -79,26 +104,21 @@ export default function Service() {
               strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0">
               <path d="M9 18l6-6-6-6"/>
             </svg>
-          </motion.a>
+          </motion.button>
         ))}
       </div>
 
       <div className="divider-gold mb-6" />
 
       {/* FAQ section */}
-      <p className="section-title">Информация</p>
+      <p className="section-title mb-3">Информация / FAQ</p>
       <div className="space-y-2 mb-6">
-        {[
-          { q: 'Как пополнить активы?',    a: 'Нажмите «Пополнить Активы» — менеджер клуба свяжется с вами в Telegram и предоставит реквизиты.' },
-          { q: 'Как обменять награды?',    a: 'Нажмите «Обменять Награды» и укажите сумму. Заявка обрабатывается в течение 24 часов.' },
-          { q: 'Безопасно ли это?',        a: 'Все операции проводятся через верифицированного менеджера клуба. Ваш ID фиксируется в каждой заявке.' },
-          { q: 'Минимальная сумма?',       a: 'Минимальная сумма для пополнения и обмена — 10 RR.' },
-        ].map((item, i) => (
+        {FAQ_ITEMS.map((item, i) => (
           <motion.details
             key={i}
             initial={{ x: -8, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
-            transition={{ delay: 0.15 + i * 0.04 }}
+            transition={{ delay: 0.1 + i * 0.04 }}
             className="group rounded-2xl overflow-hidden"
             style={{ background: '#1c1c1c', border: '1px solid rgba(255,255,255,0.07)' }}
           >
@@ -114,26 +134,26 @@ export default function Service() {
         ))}
       </div>
 
-      {/* Contact */}
+      {/* Support button — opens direct chat */}
       <motion.a
-        href={`https://t.me/${MANAGER_USERNAME}`}
+        href={`https://t.me/${SUPPORT_USERNAME}`}
         target="_blank"
         rel="noreferrer"
         initial={{ y: 8, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ delay: 0.35 }}
-        className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl font-bold text-sm transition-all"
+        className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl font-bold text-sm transition-all active:scale-[0.98]"
         style={{
-          background: 'rgba(212,168,67,0.06)',
-          border: '1px solid rgba(212,168,67,0.2)',
+          background: 'rgba(212,168,67,0.08)',
+          border: '1px solid rgba(212,168,67,0.25)',
           color: '#d4a843',
         }}
       >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
           <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"
             stroke="#d4a843" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
         </svg>
-        Связаться с Хостом
+        Поддержка (VIP Service)
       </motion.a>
     </div>
   )
