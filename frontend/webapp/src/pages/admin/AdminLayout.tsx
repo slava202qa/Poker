@@ -2,7 +2,6 @@ import { useEffect, useState, useCallback } from "react"
 import { useNavigate, useLocation, Outlet } from "react-router-dom"
 import { motion } from "framer-motion"
 import { useApi } from "../../hooks/useApi"
-import { useTelegram } from "../../hooks/useTelegram"
 
 const tabs = [
   { path: "/admin",              label: "Обзор",      icon: "📊" },
@@ -20,7 +19,6 @@ export default function AdminLayout() {
   const [authState, setAuthState] = useState<AuthState>("loading")
   const [errorMsg, setErrorMsg] = useState("")
   const api = useApi()
-  const { tg } = useTelegram()
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -28,17 +26,13 @@ export default function AdminLayout() {
     setAuthState("loading")
     setErrorMsg("")
 
-    // Wait up to 3s for Telegram WebApp to populate initData
-    let initData = tg?.initData ?? ""
-    if (!initData) {
-      for (let i = 0; i < 15; i++) {
-        await new Promise(r => setTimeout(r, 200))
-        initData = window.Telegram?.WebApp?.initData ?? ""
-        if (initData) break
-      }
+    // Wait up to 2s for Telegram WebApp to populate initData
+    for (let i = 0; i < 10; i++) {
+      if (window.Telegram?.WebApp?.initData) break
+      await new Promise(r => setTimeout(r, 200))
     }
 
-    if (!initData) {
+    if (!window.Telegram?.WebApp?.initData) {
       setAuthState("no_init_data")
       return
     }
@@ -49,21 +43,9 @@ export default function AdminLayout() {
     } catch (e: any) {
       const msg = String(e?.message ?? "")
       setErrorMsg(msg)
-      if (msg.includes("403")) {
-        setAuthState("forbidden")
-      } else {
-        // 401 / network — retry once after 800ms
-        await new Promise(r => setTimeout(r, 800))
-        try {
-          await api.get<any>("/admin/check")
-          setAuthState("ok")
-        } catch (e2: any) {
-          setErrorMsg(String(e2?.message ?? ""))
-          setAuthState("forbidden")
-        }
-      }
+      setAuthState("forbidden")
     }
-  }, [tg])
+  }, [])
 
   useEffect(() => { checkAccess() }, [checkAccess])
 
