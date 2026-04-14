@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useApi } from '../../hooks/useApi'
+import { useViewportHeight } from '../../hooks/useViewportHeight'
 
 interface Tournament {
   id: number; name: string; buy_in: number; fee: number
@@ -19,25 +20,37 @@ const EMPTY_FORM = {
   guaranteed_prize: 0, is_private: false, password: '',
 }
 
-const TYPE_INFO: Record<string, { label: string; desc: string; icon: string }> = {
-  freezeout: { label: 'Freezeout', desc: 'Проиграл — выбыл', icon: '❄️' },
-  reentry:   { label: 'Re-entry', desc: 'Можно купить вход заново', icon: '🔄' },
-  pko:       { label: 'PKO Bounty', desc: 'Награда за каждого выбитого', icon: '💀' },
+const TYPES = [
+  { val: 'freezeout', icon: '❄️', label: 'Freezeout', desc: 'Проиграл — выбыл' },
+  { val: 'reentry',   icon: '🔄', label: 'Re-entry',  desc: 'Можно купить вход заново' },
+  { val: 'pko',       icon: '💀', label: 'PKO Bounty', desc: 'Награда за выбитого' },
+]
+
+const STATUS_COLOR: Record<string, string> = {
+  registering: 'bg-green-900/50 text-green-400',
+  running: 'bg-yellow-900/50 text-yellow-400',
+  cancelled: 'bg-red-900/50 text-red-400',
+  finished: 'bg-gray-800 text-gray-400',
 }
 
 export default function AdminTournaments() {
   const [tournaments, setTournaments] = useState<Tournament[]>([])
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState(EMPTY_FORM)
+  const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const api = useApi()
+  const vh = useViewportHeight()
 
-  const load = () => api.get<Tournament[]>('/tournaments/').then(setTournaments).catch(() => {})
+  const load = () => api.get<Tournament[]>('/admin/tournaments').then(setTournaments).catch(() => {})
   useEffect(() => { load() }, [])
 
+  const F = (k: keyof typeof form, v: any) => setForm(f => ({ ...f, [k]: v }))
+
   const handleCreate = async () => {
-    if (!form.name || !form.starts_at) { setError('Заполните название и время старта'); return }
-    setError('')
+    if (!form.name.trim()) { setError('Введите название'); return }
+    if (!form.starts_at) { setError('Укажите время старта'); return }
+    setSaving(true); setError('')
     try {
       await api.post('/admin/tournaments', {
         ...form,
@@ -46,6 +59,7 @@ export default function AdminTournaments() {
       })
       setShowForm(false); setForm(EMPTY_FORM); load()
     } catch (e: any) { setError(e.message || 'Ошибка') }
+    finally { setSaving(false) }
   }
 
   const handleCancel = async (id: number) => {
@@ -58,52 +72,65 @@ export default function AdminTournaments() {
     try { await api.del(`/admin/tournaments/${id}`); load() } catch {}
   }
 
-  const formatDate = (iso: string) =>
+  const fmtDate = (iso: string) =>
     new Date(iso).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
 
-  const statusColor: Record<string, string> = {
-    registering: 'bg-green-900/50 text-green-400',
-    running: 'bg-yellow-900/50 text-yellow-400',
-    cancelled: 'bg-red-900/50 text-red-400',
-    finished: 'bg-gray-800 text-gray-400',
+  // Default datetime-local value = now + 1 hour
+  const defaultStart = () => {
+    const d = new Date(Date.now() + 3600_000)
+    return d.toISOString().slice(0, 16)
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 p-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold">🏆 Управление турнирами</h2>
-        <button onClick={() => { setShowForm(!showForm); setForm(EMPTY_FORM); setError('') }}
+        <h2 className="text-xl font-bold">🏆 Турниры</h2>
+        <button onClick={() => { setForm({ ...EMPTY_FORM, starts_at: defaultStart() }); setError(''); setShowForm(true) }}
           className="btn-gold px-4 py-2 text-sm">
-          {showForm ? '✕ Закрыть' : '+ Создать турнир'}
+          + Создать турнир
         </button>
       </div>
 
+      {/* Fullscreen modal */}
       <AnimatePresence>
         {showForm && (
-          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
-            <div className="card-surface p-4 space-y-4">
-              <h3 className="font-bold text-sm text-poker-gold">⚔️ Новая Битва</h3>
+          <motion.div
+            initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 30 }}
+            className="fixed z-[60] flex flex-col"
+            style={{ top: 0, left: 0, right: 0, height: vh, background: '#0d0d0d' }}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between px-4 pt-5 pb-3 flex-shrink-0"
+              style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+              <h3 className="text-base font-extrabold text-poker-gold">🏆 Новый турнир</h3>
+              <button onClick={() => setShowForm(false)}
+                className="w-9 h-9 rounded-xl flex items-center justify-center text-gray-400"
+                style={{ background: 'rgba(255,255,255,0.06)' }}>✕</button>
+            </div>
+
+            {/* Scrollable body */}
+            <div className="flex-1 overflow-y-auto px-4 py-4 space-y-5" style={{ WebkitOverflowScrolling: 'touch' }}>
 
               {/* Name */}
               <div>
-                <label className="text-xs text-gray-500 mb-1 block">Название Битвы</label>
-                <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                  placeholder="Вечерний Картель"
-                  className="w-full bg-poker-darker border border-poker-border rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 outline-none" />
+                <label className="text-xs text-gray-500 mb-1 block">Название</label>
+                <input value={form.name} onChange={e => F('name', e.target.value)}
+                  placeholder="Вечерний турнир"
+                  className="w-full rounded-xl px-4 py-3 text-sm text-white outline-none"
+                  style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }} />
               </div>
 
-              {/* Tournament type */}
+              {/* Type */}
               <div>
-                <label className="text-xs text-gray-500 mb-1 block">Формат (Драйв)</label>
+                <label className="text-xs text-gray-500 mb-2 block">Формат</label>
                 <div className="grid grid-cols-3 gap-2">
-                  {Object.entries(TYPE_INFO).map(([val, info]) => (
-                    <button key={val} onClick={() => setForm(f => ({ ...f, tournament_type: val }))}
-                      className="rounded-lg p-2.5 text-left transition-all"
-                      style={{ background: form.tournament_type === val ? 'rgba(212,168,67,0.12)' : 'rgba(255,255,255,0.03)', border: `1px solid ${form.tournament_type === val ? 'rgba(212,168,67,0.4)' : 'rgba(255,255,255,0.08)'}` }}>
-                      <p className="text-sm">{info.icon}</p>
-                      <p className="text-[10px] font-bold text-white">{info.label}</p>
-                      <p className="text-[9px] text-gray-600">{info.desc}</p>
+                  {TYPES.map(t => (
+                    <button key={t.val} onClick={() => F('tournament_type', t.val)}
+                      className="rounded-xl p-3 text-left transition-all"
+                      style={{ background: form.tournament_type === t.val ? 'rgba(212,168,67,0.12)' : 'rgba(255,255,255,0.03)', border: `1px solid ${form.tournament_type === t.val ? 'rgba(212,168,67,0.4)' : 'rgba(255,255,255,0.08)'}` }}>
+                      <p className="text-lg mb-1">{t.icon}</p>
+                      <p className="text-[11px] font-bold text-white">{t.label}</p>
+                      <p className="text-[9px] text-gray-600 mt-0.5">{t.desc}</p>
                     </button>
                   ))}
                 </div>
@@ -111,46 +138,55 @@ export default function AdminTournaments() {
 
               {/* Finances */}
               <div>
-                <label className="text-xs text-gray-500 mb-1 block">Входные данные (Финансы)</label>
+                <label className="text-xs text-gray-500 mb-2 block">Финансы</label>
                 <div className="grid grid-cols-2 gap-2">
                   {[
-                    { k: 'buy_in', l: 'Дань (Бай-ин) RR' },
-                    { k: 'fee', l: 'Комиссия платформы RR' },
-                    { k: 'starting_stack', l: 'Стартовый стек' },
-                    { k: 'guaranteed_prize', l: 'Гарантия призового (0=нет)' },
+                    { k: 'buy_in' as const, l: 'Бай-ин (RR)' },
+                    { k: 'fee' as const, l: 'Комиссия (RR)' },
+                    { k: 'starting_stack' as const, l: 'Стартовый стек' },
+                    { k: 'guaranteed_prize' as const, l: 'Гарантия призового (0 = нет)' },
                   ].map(f => (
                     <div key={f.k}>
-                      <label className="text-[10px] text-gray-600 mb-0.5 block">{f.l}</label>
-                      <input type="number" value={(form as any)[f.k]}
-                        onChange={e => setForm(prev => ({ ...prev, [f.k]: +e.target.value }))}
-                        className="w-full bg-poker-darker border border-poker-border rounded-lg px-3 py-2 text-sm text-white outline-none" />
+                      <label className="text-[10px] text-gray-600 mb-1 block">{f.l}</label>
+                      <input type="number" value={form[f.k]}
+                        onChange={e => F(f.k, +e.target.value)}
+                        className="w-full rounded-xl px-3 py-2.5 text-sm text-white outline-none"
+                        style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }} />
                     </div>
                   ))}
+                </div>
+                {/* Prize preview */}
+                <div className="mt-2 rounded-xl px-3 py-2 flex items-center justify-between"
+                  style={{ background: 'rgba(212,168,67,0.05)', border: '1px solid rgba(212,168,67,0.12)' }}>
+                  <span className="text-[10px] text-gray-500">Призовой = бай-ин × кол-во игроков</span>
+                  {form.guaranteed_prize > 0 && (
+                    <span className="text-[10px] text-poker-gold font-bold">GTD {form.guaranteed_prize.toLocaleString()} RR</span>
+                  )}
                 </div>
               </div>
 
               {/* Structure */}
               <div>
-                <label className="text-xs text-gray-500 mb-1 block">Структура игры</label>
-                <div className="grid grid-cols-2 gap-2">
+                <label className="text-xs text-gray-500 mb-2 block">Структура</label>
+                <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-[10px] text-gray-600 mb-0.5 block">Ярость (рост блайндов)</label>
+                    <label className="text-[10px] text-gray-600 mb-1.5 block">Рост блайндов (мин)</label>
                     <div className="grid grid-cols-3 gap-1">
-                      {[5, 10, 15].map(m => (
-                        <button key={m} onClick={() => setForm(f => ({ ...f, blind_level_minutes: m }))}
-                          className="py-1.5 rounded-lg text-[10px] font-bold transition-all"
+                      {[5, 10, 15, 20, 30, 60].map(m => (
+                        <button key={m} onClick={() => F('blind_level_minutes', m)}
+                          className="py-2 rounded-xl text-[10px] font-bold transition-all"
                           style={{ background: form.blind_level_minutes === m ? 'rgba(212,168,67,0.15)' : 'rgba(255,255,255,0.04)', border: `1px solid ${form.blind_level_minutes === m ? 'rgba(212,168,67,0.4)' : 'rgba(255,255,255,0.06)'}`, color: form.blind_level_minutes === m ? '#d4a843' : '#6b7280' }}>
-                          {m} мин
+                          {m}м
                         </button>
                       ))}
                     </div>
                   </div>
                   <div>
-                    <label className="text-[10px] text-gray-600 mb-0.5 block">Мест за столом</label>
+                    <label className="text-[10px] text-gray-600 mb-1.5 block">Мест за столом</label>
                     <div className="grid grid-cols-2 gap-1">
-                      {[{ n: 6, l: '6-max' }, { n: 9, l: 'Full' }].map(({ n, l }) => (
-                        <button key={n} onClick={() => setForm(f => ({ ...f, seats_per_table: n }))}
-                          className="py-1.5 rounded-lg text-[10px] font-bold transition-all"
+                      {[{ n: 6, l: '6-max' }, { n: 9, l: 'Full 9' }].map(({ n, l }) => (
+                        <button key={n} onClick={() => F('seats_per_table', n)}
+                          className="py-2 rounded-xl text-[10px] font-bold transition-all"
                           style={{ background: form.seats_per_table === n ? 'rgba(212,168,67,0.15)' : 'rgba(255,255,255,0.04)', border: `1px solid ${form.seats_per_table === n ? 'rgba(212,168,67,0.4)' : 'rgba(255,255,255,0.06)'}`, color: form.seats_per_table === n ? '#d4a843' : '#6b7280' }}>
                           {l}
                         </button>
@@ -160,29 +196,39 @@ export default function AdminTournaments() {
                 </div>
               </div>
 
-              {/* Players + Late reg */}
+              {/* Players */}
               <div className="grid grid-cols-3 gap-2">
                 {[
-                  { k: 'min_players', l: 'Мин. игроков' },
-                  { k: 'max_players', l: 'Макс. игроков' },
-                  { k: 'late_reg_levels', l: 'Поздняя рег. (уровней)' },
+                  { k: 'min_players' as const, l: 'Мин. игроков' },
+                  { k: 'max_players' as const, l: 'Макс. игроков' },
+                  { k: 'late_reg_levels' as const, l: 'Поздняя рег. (уровней)' },
                 ].map(f => (
                   <div key={f.k}>
-                    <label className="text-[10px] text-gray-600 mb-0.5 block">{f.l}</label>
-                    <input type="number" value={(form as any)[f.k]}
-                      onChange={e => setForm(prev => ({ ...prev, [f.k]: +e.target.value }))}
-                      className="w-full bg-poker-darker border border-poker-border rounded-lg px-3 py-2 text-sm text-white outline-none" />
+                    <label className="text-[10px] text-gray-600 mb-1 block">{f.l}</label>
+                    <input type="number" value={form[f.k]}
+                      onChange={e => F(f.k, +e.target.value)}
+                      className="w-full rounded-xl px-3 py-2.5 text-sm text-white outline-none"
+                      style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }} />
                   </div>
                 ))}
               </div>
 
+              {/* Start time */}
+              <div>
+                <label className="text-xs text-gray-500 mb-1 block">Дата и время старта</label>
+                <input type="datetime-local" value={form.starts_at}
+                  onChange={e => F('starts_at', e.target.value)}
+                  className="w-full rounded-xl px-4 py-3 text-sm text-white outline-none"
+                  style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', colorScheme: 'dark' }} />
+              </div>
+
               {/* Privacy */}
               <div>
-                <label className="text-xs text-gray-500 mb-1 block">Конфиденциальность</label>
+                <label className="text-xs text-gray-500 mb-2 block">Доступ</label>
                 <div className="grid grid-cols-2 gap-2">
                   {[{ val: false, label: '🌐 Открытый' }, { val: true, label: '🔒 Приватный' }].map(opt => (
-                    <button key={String(opt.val)} onClick={() => setForm(f => ({ ...f, is_private: opt.val }))}
-                      className="py-2 rounded-lg text-xs font-bold transition-all"
+                    <button key={String(opt.val)} onClick={() => F('is_private', opt.val)}
+                      className="py-2.5 rounded-xl text-sm font-bold transition-all"
                       style={{ background: form.is_private === opt.val ? 'rgba(212,168,67,0.15)' : 'rgba(255,255,255,0.04)', border: `1px solid ${form.is_private === opt.val ? 'rgba(212,168,67,0.4)' : 'rgba(255,255,255,0.08)'}`, color: form.is_private === opt.val ? '#d4a843' : '#6b7280' }}>
                       {opt.label}
                     </button>
@@ -190,53 +236,58 @@ export default function AdminTournaments() {
                 </div>
                 {form.is_private && (
                   <input type="password" value={form.password}
-                    onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
+                    onChange={e => F('password', e.target.value)}
                     placeholder="Пароль турнира"
-                    className="w-full mt-2 bg-poker-darker border border-poker-border rounded-lg px-3 py-2 text-sm text-white outline-none" />
+                    className="w-full mt-2 rounded-xl px-4 py-3 text-sm text-white outline-none"
+                    style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }} />
                 )}
-              </div>
-
-              {/* Start time */}
-              <div>
-                <label className="text-xs text-gray-500 mb-1 block">Время старта Битвы</label>
-                <input type="datetime-local" value={form.starts_at}
-                  onChange={e => setForm(f => ({ ...f, starts_at: e.target.value }))}
-                  className="w-full bg-poker-darker border border-poker-border rounded-lg px-3 py-2 text-sm text-white outline-none" />
               </div>
 
               {/* Preview */}
               {form.name && (
                 <div className="rounded-xl p-3" style={{ background: 'rgba(212,168,67,0.04)', border: '1px solid rgba(212,168,67,0.15)' }}>
                   <p className="text-[10px] text-gray-500 mb-1">Предпросмотр</p>
-                  <p className="text-sm font-bold text-white">{form.name} {TYPE_INFO[form.tournament_type]?.icon}</p>
-                  <p className="text-[10px] text-gray-500">
-                    Бай-ин: {form.buy_in}+{form.fee} RR · Стек: {form.starting_stack.toLocaleString()} · Блайнды каждые {form.blind_level_minutes} мин
+                  <p className="text-sm font-bold">{form.name} {TYPES.find(t => t.val === form.tournament_type)?.icon}</p>
+                  <p className="text-[10px] text-gray-500 mt-0.5">
+                    Бай-ин: {form.buy_in}+{form.fee} RR · Стек: {form.starting_stack.toLocaleString()}
+                    {' · '}Блайнды каждые {form.blind_level_minutes} мин
                     {form.guaranteed_prize > 0 && ` · GTD ${form.guaranteed_prize.toLocaleString()} RR`}
+                    {form.starts_at && ` · Старт: ${fmtDate(form.starts_at)}`}
                   </p>
                 </div>
               )}
 
-              {error && <p className="text-xs text-red-400">{error}</p>}
+              {error && <p className="text-xs text-red-400 text-center">{error}</p>}
+            </div>
 
-              <div className="flex gap-2">
-                <button onClick={handleCreate} className="btn-gold px-4 py-2 text-sm flex-1">Создать</button>
-                <button onClick={() => setShowForm(false)} className="btn-secondary px-4 py-2 text-sm">Отмена</button>
-              </div>
+            {/* Fixed bottom */}
+            <div className="flex-shrink-0 px-4 pt-3 flex gap-2"
+              style={{ borderTop: '1px solid rgba(255,255,255,0.07)', background: '#0d0d0d', paddingBottom: 'max(env(safe-area-inset-bottom), 24px)' }}>
+              <button onClick={() => setShowForm(false)}
+                className="px-4 py-3.5 rounded-xl text-sm font-bold"
+                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', color: '#6b7280' }}>
+                Отмена
+              </button>
+              <button onClick={handleCreate} disabled={saving}
+                className="flex-1 btn-gold py-3.5 rounded-xl text-sm font-bold disabled:opacity-50">
+                {saving ? 'Создаём...' : '🏆 Создать турнир'}
+              </button>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
+      {/* Tournament list */}
       <div className="space-y-2">
-        {tournaments.map((t) => (
+        {tournaments.map(t => (
           <div key={t.id} className="card-surface p-4">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="font-bold">{t.name}</span>
-                <span className="text-sm">{TYPE_INFO[t.tournament_type]?.icon ?? '🏆'}</span>
-                <span className={`text-xs px-2 py-0.5 rounded-full ${statusColor[t.status] ?? 'bg-gray-800 text-gray-400'}`}>{t.status}</span>
+                <span className="font-bold text-sm">{t.name}</span>
+                <span>{TYPES.find(x => x.val === t.tournament_type)?.icon ?? '🏆'}</span>
+                <span className={`text-xs px-2 py-0.5 rounded-full ${STATUS_COLOR[t.status] ?? 'bg-gray-800 text-gray-400'}`}>{t.status}</span>
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-3">
                 {t.status === 'registering' && (
                   <button onClick={() => handleCancel(t.id)} className="text-xs text-yellow-400">Отменить</button>
                 )}
@@ -247,11 +298,12 @@ export default function AdminTournaments() {
               <span>Бай-ин: {t.buy_in}+{t.fee}</span>
               <span>Призовой: {t.prize_pool} RR{t.guaranteed_prize > 0 ? ` (GTD ${t.guaranteed_prize})` : ''}</span>
               <span>Игроки: {t.current_players}/{t.max_players}</span>
-              <span>Старт: {formatDate(t.starts_at)}</span>
+              {t.starts_at && <span>Старт: {fmtDate(t.starts_at)}</span>}
+              <span>Блайнды: {t.blind_level_minutes} мин</span>
             </div>
           </div>
         ))}
-        {tournaments.length === 0 && <p className="text-gray-500 text-center py-8">Турниров пока нет.</p>}
+        {tournaments.length === 0 && <p className="text-gray-500 text-center py-8 text-sm">Турниров пока нет</p>}
       </div>
     </div>
   )

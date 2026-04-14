@@ -312,17 +312,49 @@ async def user_transactions(
 
 # ── Tables CRUD ──
 
+@router.get("/tables")
+async def admin_list_tables(
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    result = await db.execute(select(PokerTable).order_by(PokerTable.id.desc()))
+    tables = result.scalars().all()
+    return [
+        {
+            "id": t.id, "name": t.name, "status": t.status.value,
+            "max_players": t.max_players, "current_players": t.current_players,
+            "small_blind": float(t.small_blind), "big_blind": float(t.big_blind),
+            "min_buy_in": float(t.min_buy_in), "max_buy_in": float(t.max_buy_in),
+            "poker_type": getattr(t, "poker_type", "holdem"),
+            "action_timer": getattr(t, "action_timer", 30),
+            "is_private": getattr(t, "is_private", False),
+        }
+        for t in tables
+    ]
+
+
 @router.post("/tables")
 async def admin_create_table(
     body: CreateTableRequest,
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
+    import hashlib as _hl
+    pw_hash = _hl.sha256(body.password.encode()).hexdigest() if getattr(body, "is_private", False) and getattr(body, "password", None) else None
     table = PokerTable(
         name=body.name, max_players=body.max_players,
         small_blind=body.small_blind, big_blind=body.big_blind,
         min_buy_in=body.min_buy_in, max_buy_in=body.max_buy_in,
     )
+    # Set optional fields if model supports them
+    for field, val in [
+        ("poker_type", getattr(body, "poker_type", "holdem")),
+        ("action_timer", getattr(body, "action_timer", 30)),
+        ("is_private", getattr(body, "is_private", False)),
+        ("password_hash", pw_hash),
+    ]:
+        if hasattr(table, field):
+            setattr(table, field, val)
     db.add(table)
     await db.flush()
     await db.refresh(table)
@@ -371,6 +403,34 @@ async def admin_delete_table(
 
 
 # ── Tournaments CRUD ──
+
+@router.get("/tournaments")
+async def admin_list_tournaments(
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    result = await db.execute(select(Tournament).order_by(Tournament.id.desc()))
+    ts = result.scalars().all()
+    return [
+        {
+            "id": t.id, "name": t.name, "status": t.status.value,
+            "buy_in": float(t.buy_in), "fee": float(t.fee),
+            "starting_stack": float(t.starting_stack),
+            "max_players": t.max_players, "min_players": getattr(t, "min_players", 2),
+            "current_players": t.current_players, "prize_pool": float(t.prize_pool),
+            "starts_at": t.starts_at.isoformat() if t.starts_at else None,
+            "tournament_type": getattr(t, "tournament_type", TournamentType.FREEZEOUT).value
+                if hasattr(getattr(t, "tournament_type", None), "value")
+                else str(getattr(t, "tournament_type", "freezeout")),
+            "seats_per_table": getattr(t, "seats_per_table", 9),
+            "blind_level_minutes": getattr(t, "blind_level_minutes", 15),
+            "late_reg_levels": getattr(t, "late_reg_levels", 3),
+            "guaranteed_prize": float(getattr(t, "guaranteed_prize", 0)),
+            "is_private": getattr(t, "is_private", False),
+        }
+        for t in ts
+    ]
+
 
 @router.post("/tournaments")
 async def admin_create_tournament(
@@ -924,7 +984,8 @@ async def update_referral_bonus(
 # ── Contract / Finance ────────────────────────────────────────────────────────
 
 class OwnerWithdrawRequest(BaseModel):
-    amount_rr: float = 0  # 0 = withdraw all accumulated fees
+    amount_rr: float = 0    # legacy field
+    amount_ton: float = 0   # amount in TON to withdraw (0 = all fees)
 
 
 @router.get("/contract/balance")

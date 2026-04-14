@@ -160,6 +160,7 @@ function ContractPanel() {
   const api = useApi()
   const [balance, setBalance] = useState<{ balance_ton: number | null; contract_address: string } | null>(null)
   const [withdrawing, setWithdrawing] = useState(false)
+  const [amountTon, setAmountTon] = useState('')
   const [msg, setMsg] = useState('')
 
   useEffect(() => {
@@ -167,11 +168,25 @@ function ContractPanel() {
   }, [])
 
   const handleWithdraw = async () => {
+    const amt = parseFloat(amountTon)
+    if (!amountTon || isNaN(amt) || amt <= 0) {
+      setMsg('❌ Введите сумму для вывода')
+      return
+    }
+    if (balance?.balance_ton != null && amt > balance.balance_ton) {
+      setMsg(`❌ Недостаточно средств (баланс: ${balance.balance_ton} TON)`)
+      return
+    }
     setWithdrawing(true)
     setMsg('')
     try {
-      const res = await api.post<any>('/admin/contract/withdraw_fees', { amount_rr: 0 })
-      setMsg(res.status === 'sent' ? `✅ Отправлено tx: ${res.tx_hash}` : `⚠️ ${res.detail || res.status}`)
+      // amount_rr used as amount_ton here — backend converts
+      const res = await api.post<any>('/admin/contract/withdraw_fees', { amount_ton: amt })
+      setMsg(res.status === 'sent' ? `✅ Отправлено ${amt} TON · tx: ${res.tx_hash ?? '—'}` : `⚠️ ${res.detail || res.status}`)
+      if (res.status === 'sent') {
+        setAmountTon('')
+        api.get<any>('/admin/contract/balance').then(setBalance).catch(() => {})
+      }
     } catch (e: any) {
       setMsg(`❌ ${e.message}`)
     } finally {
@@ -179,33 +194,82 @@ function ContractPanel() {
     }
   }
 
+  const maxTon = balance?.balance_ton ?? 0
+
   return (
     <div>
       <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-3">PokerVault Контракт</h3>
       <div className="card-surface p-4 space-y-3">
         <div className="flex justify-between items-center">
           <span className="text-gray-400 text-sm">Баланс контракта</span>
-          <span className="text-white font-bold">
+          <span className="text-white font-bold text-lg">
             {balance?.balance_ton != null ? `${balance.balance_ton} TON` : '—'}
           </span>
         </div>
         <div className="flex justify-between items-center">
-          <span className="text-gray-400 text-xs truncate flex-1 mr-2">Адрес</span>
+          <span className="text-gray-400 text-xs">Адрес</span>
           <span className="text-[10px] text-gray-600 font-mono truncate max-w-[160px]">
             {balance?.contract_address || 'не настроен'}
           </span>
         </div>
-        <div className="border-t border-poker-border pt-3">
-          <p className="text-xs text-gray-500 mb-2">Вывести накопленные комиссии платформы на кошелёк владельца</p>
+
+        <div className="border-t border-poker-border pt-3 space-y-2">
+          <p className="text-xs text-gray-500">Вывести TON на кошелёк владельца</p>
+
+          {/* Amount input */}
+          <div className="flex items-center gap-2">
+            <input
+              type="number"
+              value={amountTon}
+              onChange={e => setAmountTon(e.target.value)}
+              placeholder="Сумма TON"
+              min="0.01"
+              step="0.01"
+              max={maxTon}
+              className="flex-1 rounded-xl px-3 py-2.5 text-sm text-white outline-none"
+              style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}
+            />
+            {maxTon > 0 && (
+              <button
+                onClick={() => setAmountTon(String(maxTon))}
+                className="px-3 py-2.5 rounded-xl text-xs font-bold"
+                style={{ background: 'rgba(212,168,67,0.08)', border: '1px solid rgba(212,168,67,0.2)', color: '#d4a843' }}
+              >
+                Всё
+              </button>
+            )}
+          </div>
+
+          {/* Quick amounts */}
+          {maxTon > 0 && (
+            <div className="grid grid-cols-4 gap-1">
+              {[0.1, 0.5, 1, 5].filter(v => v <= maxTon).map(v => (
+                <button key={v} onClick={() => setAmountTon(String(v))}
+                  className="py-1.5 rounded-lg text-[10px] font-bold transition-all"
+                  style={amountTon === String(v)
+                    ? { background: 'rgba(212,168,67,0.15)', border: '1px solid rgba(212,168,67,0.4)', color: '#d4a843' }
+                    : { background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', color: '#6b7280' }
+                  }>
+                  {v} TON
+                </button>
+              ))}
+            </div>
+          )}
+
           <button
             onClick={handleWithdraw}
-            disabled={withdrawing || !balance?.contract_address || balance.contract_address === 'not configured'}
-            className="w-full py-2 rounded-xl text-xs font-bold transition-all disabled:opacity-40"
+            disabled={withdrawing || !balance?.contract_address || balance.contract_address === 'not configured' || !amountTon}
+            className="w-full py-3 rounded-xl text-sm font-bold transition-all disabled:opacity-40"
             style={{ background: 'rgba(212,168,67,0.1)', border: '1px solid rgba(212,168,67,0.25)', color: '#d4a843' }}
           >
-            {withdrawing ? 'Отправляем...' : '💰 Вывести комиссии'}
+            {withdrawing ? 'Отправляем...' : `💰 Вывести${amountTon ? ` ${amountTon} TON` : ''}`}
           </button>
-          {msg && <p className="text-xs mt-2" style={{ color: msg.startsWith('✅') ? '#4ade80' : '#f87171' }}>{msg}</p>}
+
+          {msg && (
+            <p className="text-xs mt-1 break-all" style={{ color: msg.startsWith('✅') ? '#4ade80' : '#f87171' }}>
+              {msg}
+            </p>
+          )}
         </div>
       </div>
     </div>
