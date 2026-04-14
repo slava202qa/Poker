@@ -202,6 +202,41 @@ export default function Profile() {
         </div>
       </motion.div>
 
+      {/* Syndicate invite block */}
+      <motion.div
+        initial={{ opacity: 0, y: 6 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="w-full mb-3 rounded-2xl p-4"
+        style={{ background: 'rgba(212,168,67,0.05)', border: '1px solid rgba(212,168,67,0.18)' }}
+      >
+        <div className="flex items-start gap-3 mb-3">
+          <span className="text-2xl flex-shrink-0">🤝</span>
+          <div>
+            <p className="text-sm font-extrabold text-poker-gold">Синдикат</p>
+            <p className="text-[11px] text-gray-400 mt-0.5 leading-relaxed">
+              Приглашай друзей — получай <span className="text-white font-bold">10%</span> от их рейка навсегда.
+              Их друзья приносят ещё <span className="text-white font-bold">3%</span>. Накопленное выводи в любой момент.
+            </p>
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={() => navigate('/referral')}
+            className="flex-1 py-2.5 rounded-xl text-xs font-bold transition-all"
+            style={{ background: 'rgba(212,168,67,0.12)', border: '1px solid rgba(212,168,67,0.3)', color: '#d4a843' }}
+          >
+            ✈️ Пригласить игрока
+          </button>
+          <button
+            onClick={() => navigate('/referral')}
+            className="py-2.5 px-3 rounded-xl text-xs font-bold transition-all"
+            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: '#6b7280' }}
+          >
+            Мой Синдикат →
+          </button>
+        </div>
+      </motion.div>
+
       <motion.button
         initial={{ opacity: 0, y: 6 }}
         animate={{ opacity: 1, y: 0 }}

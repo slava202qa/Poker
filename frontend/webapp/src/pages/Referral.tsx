@@ -117,9 +117,9 @@ export default function Referral() {
         </div>
         {claimMsg && <p className="text-xs mt-1" style={{ color: claimMsg.startsWith('✅') ? '#4ade80' : '#f87171' }}>{claimMsg}</p>}
         <div className="flex gap-3 mt-2">
-          <span className="text-[10px] text-gray-600">Ур.1: 20% рейка</span>
+          <span className="text-[10px] text-gray-600">Ур.1: 10% рейка</span>
           <span className="text-[10px] text-gray-600">·</span>
-          <span className="text-[10px] text-gray-600">Ур.2: 5% рейка</span>
+          <span className="text-[10px] text-gray-600">Ур.2: 3% рейка</span>
         </div>
       </motion.div>
 
@@ -186,8 +186,8 @@ export default function Referral() {
           { icon: '🎁', text: `Агент получает ${stats?.welcome_bonus ?? 100} RR сразу при вступлении` },
           { icon: '💰', text: `Ты получаешь ${stats?.bonus_per_friend ?? 500} RR после первого пополнения агента` },
           { icon: '🎰', text: 'Агент получает +5% к первому депозиту автоматически' },
-          { icon: '📊', text: 'Уровень 1: 20% от рейка твоих агентов → в копилку' },
-          { icon: '📈', text: 'Уровень 2: 5% от рейка агентов твоих агентов → в копилку' },
+          { icon: '📊', text: 'Уровень 1: 10% от рейка твоих агентов → в копилку' },
+          { icon: '📈', text: 'Уровень 2: 3% от рейка агентов твоих агентов → в копилку' },
           { icon: '♾️', text: 'Количество агентов не ограничено' },
         ].map((item, i) => (
           <div key={i} className="flex items-center gap-3 py-2 border-b last:border-0"

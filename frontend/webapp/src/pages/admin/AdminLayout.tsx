@@ -24,33 +24,45 @@ export default function AdminLayout() {
   const navigate = useNavigate()
   const location = useLocation()
 
-  const checkAccess = useCallback(() => {
+  const checkAccess = useCallback(async () => {
     setAuthState("loading")
     setErrorMsg("")
-    const initData = tg?.initData ?? ""
+
+    // Wait up to 3s for Telegram WebApp to populate initData
+    let initData = tg?.initData ?? ""
+    if (!initData) {
+      for (let i = 0; i < 15; i++) {
+        await new Promise(r => setTimeout(r, 200))
+        initData = window.Telegram?.WebApp?.initData ?? ""
+        if (initData) break
+      }
+    }
+
     if (!initData) {
       setAuthState("no_init_data")
       return
     }
-    api.get<any>("/admin/check")
-      .then(() => setAuthState("ok"))
-      .catch((e: any) => {
-        const msg = String(e?.message ?? "")
-        setErrorMsg(msg)
-        if (msg.includes("403")) {
+
+    try {
+      await api.get<any>("/admin/check")
+      setAuthState("ok")
+    } catch (e: any) {
+      const msg = String(e?.message ?? "")
+      setErrorMsg(msg)
+      if (msg.includes("403")) {
+        setAuthState("forbidden")
+      } else {
+        // 401 / network — retry once after 800ms
+        await new Promise(r => setTimeout(r, 800))
+        try {
+          await api.get<any>("/admin/check")
+          setAuthState("ok")
+        } catch (e2: any) {
+          setErrorMsg(String(e2?.message ?? ""))
           setAuthState("forbidden")
-        } else {
-          // 401 or network error — retry once after 1s
-          setTimeout(() => {
-            api.get<any>("/admin/check")
-              .then(() => setAuthState("ok"))
-              .catch((e2: any) => {
-                setErrorMsg(String(e2?.message ?? ""))
-                setAuthState("forbidden")
-              })
-          }, 1000)
         }
-      })
+      }
+    }
   }, [tg])
 
   useEffect(() => { checkAccess() }, [checkAccess])

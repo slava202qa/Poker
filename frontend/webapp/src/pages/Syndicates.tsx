@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useViewportHeight } from '../hooks/useViewportHeight'
 import { useApi } from '../hooks/useApi'
 
 interface Syndicate {
@@ -47,6 +48,7 @@ type Tab = 'my' | 'list' | 'leaderboard'
 
 export default function Syndicates() {
   const api = useApi()
+  const vh = useViewportHeight()
   const [tab, setTab] = useState<Tab>('my')
   const [mySyndicate, setMySyndicate] = useState<Syndicate | null | undefined>(undefined)
   const [syndicates, setSyndicates] = useState<Syndicate[]>([])
@@ -382,8 +384,8 @@ export default function Syndicates() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed z-50 flex flex-col"
-            style={{ background: '#0d0d0d', top: 0, left: 0, right: 0, bottom: 0, height: '100dvh' }}
+            className="fixed z-[60] flex flex-col"
+            style={{ background: '#0d0d0d', top: 0, left: 0, right: 0, height: vh }}
           >
             {/* Header */}
             <div className="flex items-center justify-between px-4 pt-5 pb-3 flex-shrink-0"

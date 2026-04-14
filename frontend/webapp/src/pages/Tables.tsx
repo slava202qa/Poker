@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useViewportHeight } from '../hooks/useViewportHeight'
 import { useApi } from '../hooks/useApi'
 import { useStore } from '../store/useStore'
 
@@ -57,6 +58,7 @@ const EMPTY_FORM: CreateForm = {
 }
 
 export default function Tables() {
+  const vh = useViewportHeight()
   const [tables, setTables] = useState<Table[]>([])
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState<Currency>('chip')
@@ -171,8 +173,8 @@ export default function Tables() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 20 }}
-            className="fixed z-50 flex flex-col"
-            style={{ background: '#0d0d0d', top: 0, left: 0, right: 0, bottom: 0, height: '100dvh' }}
+            className="fixed z-[60] flex flex-col"
+            style={{ background: '#0d0d0d', top: 0, left: 0, right: 0, height: vh }}
           >
             {/* Header */}
             <div className="flex items-center justify-between px-4 pt-5 pb-3 flex-shrink-0"
