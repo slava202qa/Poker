@@ -6,7 +6,7 @@ import { useStore } from '../store/useStore'
 // Bot username for deposit/exchange requests
 const MANAGER_USERNAME = 'POKER_VIP_1_Bot'
 // Your personal Telegram for support — players will write directly to you
-const SUPPORT_USERNAME = 'slava202qa'
+const SUPPORT_USERNAME = 'Vail_Bosco'
 
 function tgLink(text: string) {
   return `https://t.me/${MANAGER_USERNAME}?start=${encodeURIComponent(text)}`
