@@ -25,8 +25,8 @@ jobs:
             git reset --hard origin/main
 
             # Clean restart to avoid container name conflicts
-            docker compose down --remove-orphans
-            docker container prune -f
+            docker compose down --remove-orphans || true
+            docker container prune -f || true
             docker compose up --build -d
 
             # Wait for DB
