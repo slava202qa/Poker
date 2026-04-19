@@ -4,6 +4,7 @@ from app.api.tables import router as tables_router
 from app.api.tournaments import router as tournaments_router
 from app.api.economy import router as economy_router
 from app.api.profile import router as profile_router
+from app.api.vip import router as vip_router
 from app.api.admin import router as admin_router
 from app.api.internal import router as internal_router
 from app.api.shop import router as shop_router
@@ -13,12 +14,13 @@ from app.api.referral import router as referral_router
 from app.api.friends import router as friends_router
 from app.api.syndicates import router as syndicates_router
 
-api_router = APIRouter(prefix="/api")
+api_router = APIRouter(prefix="/api", redirect_slashes=False)
 api_router.include_router(auth_router)
 api_router.include_router(tables_router)
 api_router.include_router(tournaments_router)
 api_router.include_router(economy_router)
 api_router.include_router(profile_router)
+api_router.include_router(vip_router)
 api_router.include_router(admin_router)
 api_router.include_router(internal_router)
 api_router.include_router(shop_router)

@@ -102,7 +102,7 @@ export default function Tables() {
         is_private: form.is_private,
       }
       if (form.is_private && form.password) payload.password = form.password
-      const t = await api.post<Table>('/tables/', payload)
+      const t = await api.post<Table>('/tables', payload)
       setCreatedTable(t)
       setShowCreate(false)
       setForm(EMPTY_FORM)
@@ -388,7 +388,7 @@ function FunRefillButton({ balance }: { balance: number }) {
       if (user) setUser({ ...user, fun_balance: res.fun_balance })
       setMsg('✅ +10 000 BR зачислено!')
     } catch (e: any) {
-      setMsg(`❌ ${e?.detail || 'Ошибка'}`)
+      setMsg(`❌ ${e?.detail || e?.message || 'Ошибка'}`)
     } finally {
       setLoading(false)
     }

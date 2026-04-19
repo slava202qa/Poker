@@ -1009,3 +1009,52 @@ async def withdraw_contract_fees(
     from app.ton.contract import owner_withdraw_fees
     result = await owner_withdraw_fees(body.amount_rr)
     return result
+
+
+# ── Admin Syndicates (Cartels) ──
+
+@router.get("/syndicates")
+async def admin_list_syndicates(
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    from app.models.clan import Clan, ClanMember
+    result = await db.execute(
+        select(Clan, func.count(ClanMember.id).label("member_count"))
+        .outerjoin(ClanMember, ClanMember.clan_id == Clan.id)
+        .group_by(Clan.id)
+        .order_by(Clan.id.desc())
+    )
+    rows = result.all()
+    out = []
+    for clan, cnt in rows:
+        owner = await db.get(User, clan.owner_id)
+        out.append({
+            "id": clan.id,
+            "name": clan.name,
+            "description": clan.description,
+            "member_count": cnt,
+            "total_rake": float(getattr(clan, "total_rake", 0) or 0),
+            "created_at": clan.created_at.isoformat() if clan.created_at else None,
+            "owner_name": (owner.first_name or owner.username or str(owner.telegram_id)) if owner else "—",
+        })
+    return out
+
+
+@router.delete("/syndicates/{clan_id}")
+async def admin_disband_syndicate(
+    clan_id: int,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    from app.models.clan import Clan, ClanMember
+    clan = await db.get(Clan, clan_id)
+    if not clan:
+        raise HTTPException(status_code=404, detail="Картель не найден")
+    # Remove all members first
+    await db.execute(
+        __import__("sqlalchemy", fromlist=["delete"]).delete(ClanMember).where(ClanMember.clan_id == clan_id)
+    )
+    await db.delete(clan)
+    await db.commit()
+    return {"status": "disbanded", "clan_id": clan_id}

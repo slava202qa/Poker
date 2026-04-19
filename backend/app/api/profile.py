@@ -127,3 +127,44 @@ async def get_leaderboard(
             xp=stats.xp,
         ))
     return out
+
+
+class UpdateProfileRequest(BaseModel):
+    bio: str | None = None
+    avatar_url: str | None = None
+
+
+@router.patch("/me")
+async def update_profile(
+    body: UpdateProfileRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    if body.bio is not None:
+        user.bio = body.bio[:256]
+    if body.avatar_url is not None:
+        user.avatar_url = body.avatar_url
+    await db.commit()
+    return {"status": "ok", "bio": user.bio, "avatar_url": user.avatar_url}
+
+
+@router.post("/me/avatar")
+async def upload_avatar(
+    file: "UploadFile" = __import__("fastapi", fromlist=["File", "UploadFile"]).File(...),
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    import os, uuid, shutil
+    from fastapi import UploadFile
+    UPLOAD_DIR = os.environ.get("UPLOAD_DIR", "/app/uploads")
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
+    ext = os.path.splitext(file.filename or "")[1].lower() or ".jpg"
+    if ext not in (".jpg", ".jpeg", ".png", ".webp"):
+        raise __import__("fastapi", fromlist=["HTTPException"]).HTTPException(400, "Только jpg/png/webp")
+    fname = f"avatar_{user.id}_{uuid.uuid4().hex[:8]}{ext}"
+    fpath = os.path.join(UPLOAD_DIR, fname)
+    with open(fpath, "wb") as f:
+        shutil.copyfileobj(file.file, f)
+    user.avatar_url = f"/uploads/{fname}"
+    await db.commit()
+    return {"avatar_url": user.avatar_url}

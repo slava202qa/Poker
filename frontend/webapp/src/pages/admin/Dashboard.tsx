@@ -161,6 +161,7 @@ function ContractPanel() {
   const [balance, setBalance] = useState<{ balance_ton: number | null; contract_address: string } | null>(null)
   const [withdrawing, setWithdrawing] = useState(false)
   const [amountTon, setAmountTon] = useState('')
+  const [toWallet, setToWallet] = useState('')
   const [msg, setMsg] = useState('')
 
   useEffect(() => {
@@ -169,29 +170,27 @@ function ContractPanel() {
 
   const handleWithdraw = async () => {
     const amt = parseFloat(amountTon)
-    if (!amountTon || isNaN(amt) || amt <= 0) {
-      setMsg('❌ Введите сумму для вывода')
-      return
-    }
+    if (!amountTon || isNaN(amt) || amt <= 0) { setMsg('❌ Введите сумму'); return }
+    if (!toWallet.trim()) { setMsg('❌ Введите адрес кошелька'); return }
     if (balance?.balance_ton != null && amt > balance.balance_ton) {
-      setMsg(`❌ Недостаточно средств (баланс: ${balance.balance_ton} TON)`)
-      return
+      setMsg(`❌ Недостаточно (баланс: ${balance.balance_ton} TON)`); return
     }
-    setWithdrawing(true)
-    setMsg('')
+    setWithdrawing(true); setMsg('')
     try {
-      // amount_rr used as amount_ton here — backend converts
-      const res = await api.post<any>('/admin/contract/withdraw_fees', { amount_ton: amt })
-      setMsg(res.status === 'sent' ? `✅ Отправлено ${amt} TON · tx: ${res.tx_hash ?? '—'}` : `⚠️ ${res.detail || res.status}`)
+      const res = await api.post<any>('/admin/contract/withdraw_fees', {
+        amount_ton: amt,
+        to_wallet: toWallet.trim(),
+      })
+      setMsg(res.status === 'sent'
+        ? `✅ Отправлено ${amt} TON · tx: ${res.tx_hash ?? '—'}`
+        : `⚠️ ${res.detail || res.status}`)
       if (res.status === 'sent') {
-        setAmountTon('')
+        setAmountTon(''); setToWallet('')
         api.get<any>('/admin/contract/balance').then(setBalance).catch(() => {})
       }
     } catch (e: any) {
-      setMsg(`❌ ${e.message}`)
-    } finally {
-      setWithdrawing(false)
-    }
+      setMsg(`❌ ${e.detail || e.message}`)
+    } finally { setWithdrawing(false) }
   }
 
   const maxTon = balance?.balance_ton ?? 0
@@ -214,7 +213,16 @@ function ContractPanel() {
         </div>
 
         <div className="border-t border-poker-border pt-3 space-y-2">
-          <p className="text-xs text-gray-500">Вывести TON на кошелёк владельца</p>
+          <p className="text-xs text-gray-500">Вывести TON на кошелёк</p>
+
+          {/* Wallet address */}
+          <input
+            value={toWallet}
+            onChange={e => setToWallet(e.target.value)}
+            placeholder="Адрес TON кошелька (UQ... или EQ...)"
+            className="w-full rounded-xl px-3 py-2.5 text-xs font-mono text-white outline-none"
+            style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}
+          />
 
           {/* Amount input */}
           <div className="flex items-center gap-2">

@@ -50,6 +50,10 @@ export default function App() {
             ton_wallet: null,
             balance: 0,
             fun_balance: 10000,
+            avatar_url: null,
+            bio: null,
+            vip_status: 'none',
+            vip_expires_at: null,
           })
         }
       } finally {

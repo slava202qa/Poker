@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 
-interface User {
+export interface User {
   id: number
   telegram_id: number
   username: string | null
@@ -8,6 +8,10 @@ interface User {
   ton_wallet: string | null
   balance: number
   fun_balance: number
+  avatar_url: string | null
+  bio: string | null
+  vip_status: string   // none | silver | gold | platinum
+  vip_expires_at: string | null
 }
 
 interface GameState {

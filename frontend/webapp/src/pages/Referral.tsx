@@ -52,17 +52,42 @@ export default function Referral() {
   }
 
   function handleShare() {
-    if (!stats) return
-    const tgShare = `https://t.me/share/url?url=${encodeURIComponent(stats.invite_url)}&text=${encodeURIComponent('🃏 Вступай в закрытый покерный клуб Royal Roll! По моей ссылке получишь ' + stats.welcome_bonus + ' RR на счёт сразу!')}`
-    window.open(tgShare, '_blank')
+    if (!stats?.invite_url) return
+    const text = `🃏 Вступай в закрытый покерный клуб Royal Roll!\nПо моей ссылке получишь ${stats.welcome_bonus} RR на счёт сразу!\n${stats.invite_url}`
+    const tgShare = `https://t.me/share/url?url=${encodeURIComponent(stats.invite_url)}&text=${encodeURIComponent(text)}`
+    // Use Telegram WebApp native link opener — works for contact picker
+    const tg = (window as any).Telegram?.WebApp
+    if (tg?.openTelegramLink) {
+      tg.openTelegramLink(tgShare)
+    } else {
+      window.open(tgShare, '_blank')
+    }
   }
 
   function handleCopy() {
-    if (!stats) return
-    navigator.clipboard.writeText(stats.invite_url).then(() => {
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    })
+    if (!stats?.invite_url) return
+    const text = stats.invite_url
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(text).then(() => {
+        setCopied(true)
+        setTimeout(() => setCopied(false), 2000)
+      }).catch(() => fallbackCopy(text))
+    } else {
+      fallbackCopy(text)
+    }
+  }
+
+  function fallbackCopy(text: string) {
+    const el = document.createElement('textarea')
+    el.value = text
+    el.style.position = 'fixed'
+    el.style.opacity = '0'
+    document.body.appendChild(el)
+    el.select()
+    document.execCommand('copy')
+    document.body.removeChild(el)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
   }
 
   return (
@@ -172,7 +197,7 @@ export default function Referral() {
         className="btn-gold w-full py-4 text-sm font-bold rounded-2xl flex items-center justify-center gap-2"
       >
         <span>✈️</span>
-        <span>Завербовать агента в Telegram</span>
+        <span>Завербовать агента</span>
       </motion.button>
 
       {/* How it works */}

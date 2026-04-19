@@ -1,5 +1,5 @@
 import datetime
-from sqlalchemy import BigInteger, String, DateTime, Boolean, func
+from sqlalchemy import BigInteger, String, Text, DateTime, Boolean, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
 
@@ -12,8 +12,12 @@ class User(Base):
     username: Mapped[str | None] = mapped_column(String(64), nullable=True)
     first_name: Mapped[str] = mapped_column(String(128), default="")
     avatar_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    bio: Mapped[str | None] = mapped_column(String(256), nullable=True)
     ton_wallet: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
     is_banned: Mapped[bool] = mapped_column(Boolean, default=False)
+    # VIP
+    vip_status: Mapped[str] = mapped_column(String(16), default="none")  # none/silver/gold/platinum
+    vip_expires_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime.datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )

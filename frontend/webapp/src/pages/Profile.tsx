@@ -65,7 +65,11 @@ export default function Profile() {
   const address = useTonAddress()
   const [tonConnectUI] = useTonConnectUI()
   const [tab, setTab] = useState<ProfileTab>('stats')
-  const { get } = useApi()
+  const [editingBio, setEditingBio] = useState(false)
+  const [bioText, setBioText] = useState('')
+  const [savingBio, setSavingBio] = useState(false)
+  const { get, patch } = useApi()
+  const setUser = useStore((s) => s.setUser)
 
   const [stats, setStats] = useState<ProfileData | null>(null)
   const [achievements, setAchievements] = useState<AchievementData[]>([])
@@ -79,6 +83,25 @@ export default function Profile() {
       .catch(console.error)
       .finally(() => setLoading(false))
   }, [])
+
+  // Sync bio text when user loads
+  useEffect(() => {
+    if (user?.bio) setBioText(user.bio)
+  }, [user?.bio])
+
+  async function saveBio() {
+    if (savingBio) return
+    setSavingBio(true)
+    try {
+      const updated = await patch<{ bio: string }>('/profile/me', { bio: bioText.trim() })
+      if (user) setUser({ ...user, bio: updated.bio })
+      setEditingBio(false)
+    } catch (e: any) {
+      alert(e.message || 'Ошибка сохранения')
+    } finally {
+      setSavingBio(false)
+    }
+  }
 
   const unlockedCount = achievements.filter((a) => a.unlocked).length
   const level = stats?.level ?? 1
@@ -116,7 +139,7 @@ export default function Profile() {
             {/* Gold-framed avatar */}
             <div className="relative flex-shrink-0">
               <div
-                className="w-16 h-16 rounded-2xl flex items-center justify-center text-2xl font-extrabold"
+                className="w-16 h-16 rounded-2xl overflow-hidden flex items-center justify-center text-2xl font-extrabold"
                 style={{
                   background: 'linear-gradient(135deg, #2a2210, #1a1608)',
                   border: '2px solid #d4a843',
@@ -124,7 +147,11 @@ export default function Profile() {
                   color: '#d4a843',
                 }}
               >
-                {tgUser?.first_name?.[0]?.toUpperCase() || '?'}
+                {user?.avatar_url ? (
+                  <img src={user.avatar_url} alt="avatar" className="w-full h-full object-cover" />
+                ) : (
+                  tgUser?.first_name?.[0]?.toUpperCase() || '?'
+                )}
               </div>
               {/* Title badge */}
               <div
@@ -139,6 +166,19 @@ export default function Profile() {
               <h2 className="font-extrabold text-lg truncate">{tgUser?.first_name || 'Player'}</h2>
               {tgUser?.username && (
                 <p className="text-xs text-gray-600">@{tgUser.username}</p>
+              )}
+              {/* VIP badge */}
+              {user?.vip_status && user.vip_status !== 'none' && (
+                <span className="inline-block mt-0.5 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider"
+                  style={{
+                    background: user.vip_status === 'platinum' ? 'linear-gradient(90deg,#e5e4e2,#a8a9ad)' :
+                                user.vip_status === 'gold'     ? 'linear-gradient(90deg,#d4a843,#f0d078)' :
+                                                                  'linear-gradient(90deg,#c0c0c0,#e8e8e8)',
+                    color: '#0a0a0a',
+                  }}>
+                  {user.vip_status === 'platinum' ? '💎 Platinum' :
+                   user.vip_status === 'gold'     ? '⭐ Gold' : '🥈 Silver'}
+                </span>
               )}
               {/* XP bar */}
               <div className="flex items-center gap-2 mt-2">
@@ -170,6 +210,47 @@ export default function Profile() {
                 <div className="text-[9px] text-gray-600 mt-0.5">{item.label}</div>
               </div>
             ))}
+          </div>
+
+          {/* Bio */}
+          <div className="mb-4">
+            {editingBio ? (
+              <div className="rounded-xl p-3" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(212,168,67,0.2)' }}>
+                <textarea
+                  value={bioText}
+                  onChange={(e) => setBioText(e.target.value)}
+                  maxLength={160}
+                  rows={3}
+                  placeholder="Расскажи о себе..."
+                  className="w-full bg-transparent text-sm text-white resize-none outline-none placeholder-gray-600"
+                />
+                <div className="flex items-center justify-between mt-2">
+                  <span className="text-[10px] text-gray-600">{bioText.length}/160</span>
+                  <div className="flex gap-2">
+                    <button onClick={() => { setEditingBio(false); setBioText(user?.bio || '') }}
+                      className="text-xs text-gray-500 px-3 py-1 rounded-lg"
+                      style={{ background: 'rgba(255,255,255,0.05)' }}>
+                      Отмена
+                    </button>
+                    <button onClick={saveBio} disabled={savingBio}
+                      className="text-xs font-bold px-3 py-1 rounded-lg"
+                      style={{ background: '#d4a843', color: '#0a0a0a', opacity: savingBio ? 0.6 : 1 }}>
+                      {savingBio ? '...' : 'Сохранить'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <button onClick={() => { setBioText(user?.bio || ''); setEditingBio(true) }}
+                className="w-full text-left rounded-xl p-3 transition-all"
+                style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                {user?.bio ? (
+                  <p className="text-sm text-gray-400">{user.bio}</p>
+                ) : (
+                  <p className="text-sm text-gray-600 italic">+ Добавить статус / био</p>
+                )}
+              </button>
+            )}
           </div>
 
           {/* TON Wallet */}

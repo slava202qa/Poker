@@ -5,11 +5,12 @@ import { useApi } from "../../hooks/useApi"
 
 const tabs = [
   { path: "/admin",              label: "Обзор",      icon: "📊" },
-  { path: "/admin/players",      label: "Игроки",     icon: "👥" },
-  { path: "/admin/transactions", label: "Транзакции", icon: "💳" },
-  { path: "/admin/shop",         label: "Магазин",    icon: "🛍" },
   { path: "/admin/tables",       label: "Столы",      icon: "🃏" },
   { path: "/admin/tournaments",  label: "Турниры",    icon: "🏆" },
+  { path: "/admin/shop",         label: "Магазин",    icon: "🛍" },
+  { path: "/admin/players",      label: "Игроки",     icon: "👥" },
+  { path: "/admin/syndicates",   label: "Картели",    icon: "⚔️" },
+  { path: "/admin/transactions", label: "Транзакции", icon: "💳" },
   { path: "/admin/withdrawals",  label: "Переводы",   icon: "💸" },
 ]
 
