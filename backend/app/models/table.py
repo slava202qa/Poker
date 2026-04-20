@@ -7,14 +7,14 @@ from app.models.balance import CurrencyType
 
 
 class TableStatus(str, enum.Enum):
-    WAITING = "waiting"
-    PLAYING = "playing"
-    PAUSED = "paused"
+    WAITING = "WAITING"
+    PLAYING = "PLAYING"
+    PAUSED = "PAUSED"
 
 
 class PokerType(str, enum.Enum):
-    HOLDEM = "holdem"
-    OMAHA = "omaha"
+    HOLDEM = "HOLDEM"
+    OMAHA = "OMAHA"
 
 
 class PokerTable(Base):
@@ -23,10 +23,10 @@ class PokerTable(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String(64), nullable=False)
     currency: Mapped[CurrencyType] = mapped_column(
-        Enum(CurrencyType), default=CurrencyType.CHIP, nullable=False
+        String(16), default=CurrencyType.CHIP, nullable=False
     )
     poker_type: Mapped[PokerType] = mapped_column(
-        Enum(PokerType), default=PokerType.HOLDEM, nullable=False
+        String(20), default=PokerType.HOLDEM, nullable=False
     )
     max_players: Mapped[int] = mapped_column(Integer, default=6)
     small_blind: Mapped[float] = mapped_column(Numeric(18, 4), nullable=False)
@@ -38,7 +38,7 @@ class PokerTable(Base):
     password_hash: Mapped[str | None] = mapped_column(String(128), nullable=True)
     invite_token: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
     creator_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
-    status: Mapped[TableStatus] = mapped_column(Enum(TableStatus), default=TableStatus.WAITING)
+    status: Mapped[TableStatus] = mapped_column(String(16), default=TableStatus.WAITING)
     current_players: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime.datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()

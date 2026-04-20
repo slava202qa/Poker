@@ -138,6 +138,7 @@ async def get_leaderboard(
 class UpdateProfileRequest(BaseModel):
     bio: str | None = None
     avatar_url: str | None = None
+    first_name: str | None = None
 
 
 @router.patch("/me")
@@ -150,8 +151,10 @@ async def update_profile(
         user.bio = body.bio[:256]
     if body.avatar_url is not None:
         user.avatar_url = body.avatar_url
+    if body.first_name is not None and body.first_name.strip():
+        user.first_name = body.first_name.strip()[:64]
     await db.commit()
-    return {"status": "ok", "bio": user.bio, "avatar_url": user.avatar_url}
+    return {"status": "ok", "bio": user.bio, "avatar_url": user.avatar_url, "first_name": user.first_name}
 
 
 @router.post("/me/avatar")

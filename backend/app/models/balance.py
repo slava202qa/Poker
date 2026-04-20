@@ -22,24 +22,24 @@ class Balance(Base):
 
 
 class CurrencyType(str, enum.Enum):
-    CHIP = "chip"
-    FUN = "fun"
+    CHIP = "CHIP"
+    FUN = "FUN"
 
 
 class TxType(str, enum.Enum):
-    DEPOSIT = "deposit"
-    WITHDRAW = "withdraw"
-    BUY_IN = "buy_in"
-    CASH_OUT = "cash_out"
-    RAKE = "rake"
-    TOURNAMENT_ENTRY = "tournament_entry"
-    TOURNAMENT_PRIZE = "tournament_prize"
-    BONUS = "bonus"
-    FUN_REFILL = "fun_refill"
-    REFERRAL = "referral"
-    SYNDICATE_RAKE = "syndicate_rake"   # rake share credited to bonus_balance
-    SYNDICATE_CLAIM = "syndicate_claim" # user claims bonus_balance → main balance
-    SHOP_PURCHASE = "shop_purchase"
+    DEPOSIT = "DEPOSIT"
+    WITHDRAW = "WITHDRAW"
+    BUY_IN = "BUY_IN"
+    CASH_OUT = "CASH_OUT"
+    RAKE = "RAKE"
+    TOURNAMENT_ENTRY = "TOURNAMENT_ENTRY"
+    TOURNAMENT_PRIZE = "TOURNAMENT_PRIZE"
+    BONUS = "BONUS"
+    FUN_REFILL = "FUN_REFILL"
+    REFERRAL = "REFERRAL"
+    SYNDICATE_RAKE = "SYNDICATE_RAKE"
+    SYNDICATE_CLAIM = "SYNDICATE_CLAIM"
+    SHOP_PURCHASE = "SHOP_PURCHASE"
 
 
 class Transaction(Base):
@@ -48,9 +48,9 @@ class Transaction(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True, nullable=False)
     currency: Mapped[CurrencyType] = mapped_column(
-        Enum(CurrencyType), default=CurrencyType.CHIP, nullable=False
+        String(16), default=CurrencyType.CHIP, nullable=False
     )
-    tx_type: Mapped[TxType] = mapped_column(Enum(TxType), nullable=False)
+    tx_type: Mapped[TxType] = mapped_column(String(32), nullable=False)
     amount: Mapped[float] = mapped_column(Numeric(18, 4), nullable=False)
     balance_after: Mapped[float] = mapped_column(Numeric(18, 4), nullable=False)
     reference: Mapped[str | None] = mapped_column(String(256), nullable=True)

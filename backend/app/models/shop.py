@@ -7,17 +7,17 @@ from app.database import Base
 
 
 class ItemType(str, enum.Enum):
-    CARD_SKIN = "card_skin"
-    AVATAR_FRAME = "avatar_frame"
-    EMOTE = "emote"
-    VIP = "vip"
+    CARD_SKIN = "CARD_SKIN"
+    AVATAR_FRAME = "AVATAR_FRAME"
+    EMOTE = "EMOTE"
+    VIP = "VIP"
 
 
 class ItemRarity(str, enum.Enum):
-    COMMON = "common"
-    RARE = "rare"
-    EPIC = "epic"
-    LEGENDARY = "legendary"
+    COMMON = "COMMON"
+    RARE = "RARE"
+    EPIC = "EPIC"
+    LEGENDARY = "LEGENDARY"
 
 
 class ShopItem(Base):
@@ -28,8 +28,8 @@ class ShopItem(Base):
     item_key: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
     name: Mapped[str] = mapped_column(String(128), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=True)
-    item_type: Mapped[ItemType] = mapped_column(Enum(ItemType), nullable=False)
-    rarity: Mapped[ItemRarity] = mapped_column(Enum(ItemRarity), default=ItemRarity.COMMON)
+    item_type: Mapped[ItemType] = mapped_column(String(32), nullable=False)
+    rarity: Mapped[ItemRarity] = mapped_column(String(16), default=ItemRarity.COMMON)
     price: Mapped[float] = mapped_column(Numeric(18, 4), nullable=False, default=0)
     icon: Mapped[str] = mapped_column(String(16), nullable=True)        # emoji fallback
     image_url: Mapped[str] = mapped_column(String(512), nullable=True)  # uploaded image

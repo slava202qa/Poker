@@ -68,7 +68,11 @@ export default function Profile() {
   const [editingBio, setEditingBio] = useState(false)
   const [bioText, setBioText] = useState('')
   const [savingBio, setSavingBio] = useState(false)
-  const { get, patch } = useApi()
+  const [editingName, setEditingName] = useState(false)
+  const [nameText, setNameText] = useState('')
+  const [savingName, setSavingName] = useState(false)
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const { get, patch, postForm } = useApi()
   const setUser = useStore((s) => s.setUser)
 
   const [stats, setStats] = useState<ProfileData | null>(null)
@@ -100,6 +104,37 @@ export default function Profile() {
       alert(e.message || 'Ошибка сохранения')
     } finally {
       setSavingBio(false)
+    }
+  }
+
+  async function saveName() {
+    if (savingName || !nameText.trim()) return
+    setSavingName(true)
+    try {
+      const updated = await patch<{ first_name: string }>('/profile/me', { first_name: nameText.trim() })
+      if (user) setUser({ ...user, first_name: updated.first_name })
+      setEditingName(false)
+    } catch (e: any) {
+      alert(e.message || 'Ошибка сохранения')
+    } finally {
+      setSavingName(false)
+    }
+  }
+
+  async function uploadPhoto(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploadingPhoto(true)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      const updated = await postForm<{ avatar_url: string }>('/profile/me/avatar', fd)
+      if (user) setUser({ ...user, avatar_url: updated.avatar_url })
+    } catch (err: any) {
+      alert(err.message || 'Ошибка загрузки фото')
+    } finally {
+      setUploadingPhoto(false)
+      e.target.value = ''
     }
   }
 
@@ -136,23 +171,32 @@ export default function Profile() {
 
         <div className="px-5 py-4">
           <div className="flex items-center gap-4 mb-4">
-            {/* Gold-framed avatar */}
+            {/* Gold-framed avatar — tap to change photo */}
             <div className="relative flex-shrink-0">
-              <div
-                className="w-16 h-16 rounded-2xl overflow-hidden flex items-center justify-center text-2xl font-extrabold"
-                style={{
-                  background: 'linear-gradient(135deg, #2a2210, #1a1608)',
-                  border: '2px solid #d4a843',
-                  boxShadow: '0 0 16px rgba(212,168,67,0.3), inset 0 1px 0 rgba(212,168,67,0.2)',
-                  color: '#d4a843',
-                }}
-              >
-                {user?.avatar_url ? (
-                  <img src={user.avatar_url} alt="avatar" className="w-full h-full object-cover" />
-                ) : (
-                  tgUser?.first_name?.[0]?.toUpperCase() || '?'
-                )}
-              </div>
+              <label className="cursor-pointer block">
+                <input type="file" accept="image/*" className="hidden" onChange={uploadPhoto} disabled={uploadingPhoto} />
+                <div
+                  className="w-16 h-16 rounded-2xl overflow-hidden flex items-center justify-center text-2xl font-extrabold relative"
+                  style={{
+                    background: 'linear-gradient(135deg, #2a2210, #1a1608)',
+                    border: '2px solid #d4a843',
+                    boxShadow: '0 0 16px rgba(212,168,67,0.3), inset 0 1px 0 rgba(212,168,67,0.2)',
+                    color: '#d4a843',
+                  }}
+                >
+                  {uploadingPhoto ? (
+                    <div className="w-5 h-5 border-2 border-poker-gold border-t-transparent rounded-full animate-spin" />
+                  ) : user?.avatar_url ? (
+                    <img src={user.avatar_url} alt="avatar" className="w-full h-full object-cover" />
+                  ) : (
+                    tgUser?.first_name?.[0]?.toUpperCase() || '?'
+                  )}
+                  {/* Camera overlay */}
+                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity rounded-2xl">
+                    <span className="text-sm">📷</span>
+                  </div>
+                </div>
+              </label>
               {/* Title badge */}
               <div
                 className="absolute -bottom-2 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full text-[9px] font-bold whitespace-nowrap"
@@ -163,7 +207,32 @@ export default function Profile() {
             </div>
 
             <div className="flex-1 min-w-0">
-              <h2 className="font-extrabold text-lg truncate">{tgUser?.first_name || 'Player'}</h2>
+              {editingName ? (
+                <div className="flex items-center gap-2 mb-1">
+                  <input
+                    value={nameText}
+                    onChange={e => setNameText(e.target.value)}
+                    maxLength={32}
+                    className="flex-1 bg-transparent border-b border-poker-gold text-white font-extrabold text-lg outline-none min-w-0"
+                    autoFocus
+                    onKeyDown={e => { if (e.key === 'Enter') saveName(); if (e.key === 'Escape') setEditingName(false) }}
+                  />
+                  <button onClick={saveName} disabled={savingName}
+                    className="text-[10px] font-bold px-2 py-1 rounded-lg flex-shrink-0"
+                    style={{ background: '#d4a843', color: '#0a0a0a' }}>
+                    {savingName ? '...' : '✓'}
+                  </button>
+                  <button onClick={() => setEditingName(false)}
+                    className="text-[10px] text-gray-500 px-2 py-1 rounded-lg flex-shrink-0"
+                    style={{ background: 'rgba(255,255,255,0.05)' }}>✕</button>
+                </div>
+              ) : (
+                <button onClick={() => { setNameText(user?.first_name || tgUser?.first_name || ''); setEditingName(true) }}
+                  className="flex items-center gap-1 group">
+                  <h2 className="font-extrabold text-lg truncate">{user?.first_name || tgUser?.first_name || 'Player'}</h2>
+                  <span className="text-[10px] text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity">✏️</span>
+                </button>
+              )}
               {tgUser?.username && (
                 <p className="text-xs text-gray-600">@{tgUser.username}</p>
               )}

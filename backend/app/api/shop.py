@@ -81,8 +81,8 @@ async def list_items(
             item_key=item.item_key,
             name=item.name,
             description=item.description,
-            item_type=item.item_type.value,
-            rarity=item.rarity.value,
+            item_type=(item.item_type.value if hasattr(item.item_type,"value") else str(item.item_type)).lower(),
+            rarity=(item.rarity.value if hasattr(item.rarity,"value") else str(item.rarity)).lower(),
             price=float(item.price),
             icon=item.icon,
             vip_days=item.vip_days,
@@ -115,7 +115,8 @@ async def buy_item(
     if item.id in inv:
         existing = inv[item.id]
         # Allow re-purchase of VIP if expired
-        if item.item_type != ItemType.VIP or (existing.expires_at and existing.expires_at > now):
+        item_type_str = item.item_type.value if hasattr(item.item_type, 'value') else str(item.item_type)
+        if item_type_str.upper() != "VIP" or (existing.expires_at and existing.expires_at > now):
             raise HTTPException(status_code=409, detail="Already owned")
 
     # Free items (price == 0) skip balance check
@@ -226,8 +227,8 @@ async def get_inventory(
             item_key=item.item_key,
             name=item.name,
             description=item.description,
-            item_type=item.item_type.value,
-            rarity=item.rarity.value,
+            item_type=(item.item_type.value if hasattr(item.item_type,"value") else str(item.item_type)).lower(),
+            rarity=(item.rarity.value if hasattr(item.rarity,"value") else str(item.rarity)).lower(),
             price=float(item.price),
             icon=item.icon,
             vip_days=item.vip_days,

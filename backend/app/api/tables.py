@@ -36,8 +36,8 @@ class TableResponse(BaseModel):
 
 class CreateTableRequest(BaseModel):
     name: str
-    currency: str = "chip"
-    poker_type: str = "holdem"
+    currency: str = "CHIP"
+    poker_type: str = "HOLDEM"
     max_players: int = 6
     small_blind: float
     big_blind: float
@@ -67,16 +67,19 @@ def _hash_password(pw: str) -> str:
 
 
 def _table_to_response(t: PokerTable) -> TableResponse:
+    cur = t.currency.value if hasattr(t.currency, 'value') else str(t.currency)
+    ptype = t.poker_type.value if hasattr(t.poker_type, 'value') else str(t.poker_type or "HOLDEM")
+    status = t.status.value if hasattr(t.status, 'value') else str(t.status or "WAITING")
     return TableResponse(
-        id=t.id, name=t.name, currency=t.currency.value,
-        poker_type=t.poker_type.value if t.poker_type else "holdem",
+        id=t.id, name=t.name, currency=cur.lower(),
+        poker_type=ptype.lower(),
         max_players=t.max_players,
         small_blind=float(t.small_blind), big_blind=float(t.big_blind),
         min_buy_in=float(t.min_buy_in), max_buy_in=float(t.max_buy_in),
         action_timer=t.action_timer if t.action_timer else 30,
         is_private=t.is_private,
         invite_token=t.invite_token if t.is_private else None,
-        status=t.status.value, current_players=t.current_players,
+        status=status.lower(), current_players=t.current_players,
     )
 
 
@@ -103,12 +106,12 @@ async def create_table(
     user: User = Depends(get_current_user),
 ):
     try:
-        cur = CurrencyType(body.currency)
+        cur = CurrencyType(body.currency.upper())
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid currency, use 'chip' or 'fun'")
 
     try:
-        ptype = PokerType(body.poker_type)
+        ptype = PokerType(body.poker_type.upper())
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid poker_type, use 'holdem' or 'omaha'")
 

@@ -319,13 +319,14 @@ async def admin_list_tables(
 ):
     result = await db.execute(select(PokerTable).order_by(PokerTable.id.desc()))
     tables = result.scalars().all()
+    def _s(v): return v.value.lower() if hasattr(v, 'value') else str(v or '').lower()
     return [
         {
-            "id": t.id, "name": t.name, "status": t.status.value,
+            "id": t.id, "name": t.name, "status": _s(t.status),
             "max_players": t.max_players, "current_players": t.current_players,
             "small_blind": float(t.small_blind), "big_blind": float(t.big_blind),
             "min_buy_in": float(t.min_buy_in), "max_buy_in": float(t.max_buy_in),
-            "poker_type": getattr(t, "poker_type", "holdem"),
+            "poker_type": _s(getattr(t, "poker_type", "HOLDEM")),
             "action_timer": getattr(t, "action_timer", 30),
             "is_private": getattr(t, "is_private", False),
         }
@@ -348,7 +349,8 @@ async def admin_create_table(
     )
     # Set optional fields if model supports them
     for field, val in [
-        ("poker_type", getattr(body, "poker_type", "holdem")),
+        ("poker_type", getattr(body, "poker_type", "HOLDEM").upper()),
+        ("currency", getattr(body, "currency", "CHIP").upper()),
         ("action_timer", getattr(body, "action_timer", 30)),
         ("is_private", getattr(body, "is_private", False)),
         ("password_hash", pw_hash),

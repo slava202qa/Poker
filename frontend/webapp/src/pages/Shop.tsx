@@ -96,7 +96,7 @@ export default function Shop() {
 
       <AnimatePresence mode="wait">
         {tab === 'rewards' && <ClubRewardsTab key="rewards" onService={() => navigate('/service')} />}
-        {tab === 'vip'     && <ItemsTab key="vip"   items={items.filter(i => i.item_type === 'vip')}       onBuy={async (item) => { try { await post('/shop/buy', { item_key: item.item_key }); showToast(`${item.name} активирован!`, true); const d = await get<ShopItem[]>('/shop/items'); setItems(d) } catch { showToast('Недостаточно RR', false) } }} onEquip={async (item) => { try { await post('/shop/equip', { item_key: item.item_key }); const d = await get<ShopItem[]>('/shop/items'); setItems(d) } catch {} }} />}
+        {tab === 'vip'     && <VipTab key="vip" items={items.filter(i => i.item_type === 'vip')} onBuy={async (item) => { try { await post('/shop/buy', { item_key: item.item_key }); showToast(`${item.name} активирован!`, true); const d = await get<ShopItem[]>('/shop/items'); setItems(d) } catch (e: any) { showToast(e?.message || 'Недостаточно RR', false) } }} />}
         {tab === 'skins'   && <ItemsTab key="skins" items={items.filter(i => i.item_type === 'card_skin')} onBuy={async (item) => { try { await post('/shop/buy', { item_key: item.item_key }); showToast(`${item.name} куплен!`, true); const d = await get<ShopItem[]>('/shop/items'); setItems(d) } catch { showToast('Недостаточно RR', false) } }} onEquip={async (item) => { try { await post('/shop/equip', { item_key: item.item_key }); const d = await get<ShopItem[]>('/shop/items'); setItems(d) } catch {} }} />}
       </AnimatePresence>
     </div>
@@ -220,6 +220,81 @@ function ItemsTab({ items, onBuy, onEquip }: {
                   </button>
                 )}
               </div>
+            </div>
+          </motion.div>
+        )
+      })}
+    </motion.div>
+  )
+}
+
+const VIP_META: Record<string, { gradient: string; badge: string; perks: string[] }> = {
+  vip_silver_30:   { gradient: 'linear-gradient(135deg,#c0c0c0,#e8e8e8)', badge: '🥈 Silver', perks: ['Скидка 10% на рейк','Приоритет в очереди','Серебряная рамка'] },
+  vip_gold_30:     { gradient: 'linear-gradient(135deg,#d4a843,#f0d078)', badge: '⭐ Gold',   perks: ['Скидка 20% на рейк','Кэшбек 5%','Золотая рамка','VIP-столы'] },
+  vip_platinum_30: { gradient: 'linear-gradient(135deg,#e5e4e2,#a8a9ad)', badge: '💎 Platinum',perks: ['Скидка 30% на рейк','Кэшбек 10%','Платиновая рамка','Все VIP-столы','Персональный менеджер'] },
+}
+
+function VipTab({ items, onBuy }: { items: ShopItem[]; onBuy: (item: ShopItem) => Promise<void> }) {
+  const [buying, setBuying] = useState<string | null>(null)
+  const user = useStore((s) => s.user)
+
+  const vipItems = items.length > 0 ? items : [
+    { id: 0, item_key: 'vip_silver_30',    name: 'Silver VIP — 30 дней',   description: null, item_type: 'vip', rarity: 'rare',      price: 500,  icon: '🥈', owned: false, equipped: false },
+    { id: 0, item_key: 'vip_gold_30',      name: 'Gold VIP — 30 дней',     description: null, item_type: 'vip', rarity: 'epic',      price: 1500, icon: '⭐', owned: false, equipped: false },
+    { id: 0, item_key: 'vip_platinum_30',  name: 'Platinum VIP — 30 дней', description: null, item_type: 'vip', rarity: 'legendary', price: 3000, icon: '💎', owned: false, equipped: false },
+  ] as ShopItem[]
+
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4 pt-2">
+      {/* Current VIP status */}
+      {user?.vip_status && user.vip_status !== 'none' && (
+        <div className="rounded-2xl p-4 text-center" style={{ background: 'rgba(212,168,67,0.08)', border: '1px solid rgba(212,168,67,0.2)' }}>
+          <p className="text-xs text-gray-400 mb-1">Активный статус</p>
+          <p className="text-lg font-extrabold" style={{ color: '#d4a843' }}>
+            {user.vip_status === 'platinum' ? '💎 Platinum' : user.vip_status === 'gold' ? '⭐ Gold' : '🥈 Silver'}
+          </p>
+          {user.vip_expires_at && (
+            <p className="text-xs text-gray-500 mt-1">до {new Date(user.vip_expires_at).toLocaleDateString('ru')}</p>
+          )}
+        </div>
+      )}
+
+      {vipItems.map(item => {
+        const meta = VIP_META[item.item_key]
+        return (
+          <motion.div key={item.item_key} className="rounded-2xl overflow-hidden"
+            style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
+            {/* Header */}
+            <div className="p-4 flex items-center justify-between"
+              style={{ background: meta?.gradient || 'rgba(255,255,255,0.05)' }}>
+              <div>
+                <p className="font-extrabold text-base" style={{ color: '#0a0a0a' }}>{meta?.badge || item.name}</p>
+                <p className="text-xs" style={{ color: 'rgba(0,0,0,0.6)' }}>30 дней</p>
+              </div>
+              <p className="text-2xl font-extrabold" style={{ color: '#0a0a0a' }}>{item.price} RR</p>
+            </div>
+            {/* Perks */}
+            <div className="p-4" style={{ background: 'rgba(255,255,255,0.02)' }}>
+              <ul className="space-y-1.5 mb-4">
+                {(meta?.perks || []).map(p => (
+                  <li key={p} className="flex items-center gap-2 text-sm text-gray-300">
+                    <span style={{ color: '#d4a843' }}>✓</span> {p}
+                  </li>
+                ))}
+              </ul>
+              {item.owned ? (
+                <div className="w-full py-2.5 rounded-xl text-center text-sm font-bold text-green-400"
+                  style={{ background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.2)' }}>
+                  ✓ Активен
+                </div>
+              ) : (
+                <button onClick={async () => { setBuying(item.item_key); await onBuy(item); setBuying(null) }}
+                  disabled={buying === item.item_key}
+                  className="w-full py-2.5 rounded-xl text-sm font-extrabold disabled:opacity-50"
+                  style={{ background: 'linear-gradient(90deg,#d4a843,#f0d078)', color: '#0a0a0a' }}>
+                  {buying === item.item_key ? 'Активируем...' : `Активировать за ${item.price} RR`}
+                </button>
+              )}
             </div>
           </motion.div>
         )
