@@ -103,7 +103,7 @@ export default function Tables() {
         is_private: form.is_private,
       }
       if (form.is_private && form.password) payload.password = form.password
-      const t = await api.post<Table>('/tables', payload)
+      const t = await api.post<Table>('/tables/', payload)
       setCreatedTable(t)
       setShowCreate(false)
       setHideNav(false)
