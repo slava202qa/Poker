@@ -33,10 +33,10 @@ NPC_TABLES: dict[int, int] = {}   # populated from DB on startup
 
 MIN_REAL_PLAYERS = 1   # activate bots when at least 1 real player is seated
 MAX_BOTS_PER_TABLE = 3
-BOT_JOIN_DELAY_MIN = 30   # seconds
-BOT_JOIN_DELAY_MAX = 60
-BOT_ACTION_DELAY_MIN = 2.0
-BOT_ACTION_DELAY_MAX = 5.0
+BOT_JOIN_DELAY_MIN = 5    # seconds — fast join for testing
+BOT_JOIN_DELAY_MAX = 15
+BOT_ACTION_DELAY_MIN = 1.5
+BOT_ACTION_DELAY_MAX = 4.0
 BOT_STACK = 5000.0
 BOT_MAX_BET_RATIO = 0.4   # bot won't bet more than 40% of pot to avoid bullying
 

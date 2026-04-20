@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useViewportHeight } from '../hooks/useViewportHeight'
 import { useApi } from '../hooks/useApi'
+import { useStore } from '../store/useStore'
 
 interface Syndicate {
   id: number
@@ -48,6 +49,7 @@ type Tab = 'my' | 'list' | 'leaderboard'
 
 export default function Syndicates() {
   const api = useApi()
+  const setHideNav = useStore((s) => s.setHideNav)
   const vh = useViewportHeight()
   const [tab, setTab] = useState<Tab>('my')
   const [mySyndicate, setMySyndicate] = useState<Syndicate | null | undefined>(undefined)
@@ -120,7 +122,7 @@ export default function Syndicates() {
     try {
       const s = await api.post<Syndicate>('/syndicates/create', createForm)
       setMySyndicate(s)
-      setShowCreate(false)
+      setShowCreate(false); setHideNav(false)
       flash('Картель создан!')
       setTab('my')
     } catch (e: any) { flash(e.message || 'Ошибка') }
@@ -177,7 +179,7 @@ export default function Syndicates() {
                 <button onClick={() => setTab('list')} className="btn-gold px-6 py-3 text-sm rounded-xl font-bold">
                   Найти картель
                 </button>
-                <button onClick={() => setShowCreate(true)}
+                <button onClick={() => { setShowCreate(true); setHideNav(true) }}
                   className="px-6 py-3 text-sm rounded-xl font-bold"
                   style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'white' }}>
                   Создать
@@ -311,7 +313,7 @@ export default function Syndicates() {
       {tab === 'list' && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
           {!mySyndicate && (
-            <button onClick={() => setShowCreate(true)}
+            <button onClick={() => { setShowCreate(true); setHideNav(true) }}
               className="w-full py-3.5 rounded-2xl text-sm font-bold flex items-center justify-center gap-2"
               style={{ background: 'rgba(212,168,67,0.08)', border: '1px dashed rgba(212,168,67,0.3)', color: '#d4a843' }}>
               + Создать картель (500 RR)
@@ -391,7 +393,7 @@ export default function Syndicates() {
             <div className="flex items-center justify-between px-4 pt-5 pb-3 flex-shrink-0"
               style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
               <h3 className="text-lg font-extrabold text-white">⚔️ Создать картель</h3>
-              <button onClick={() => setShowCreate(false)}
+              <button onClick={() => { setShowCreate(false); setHideNav(false) }}
                 className="w-9 h-9 rounded-xl flex items-center justify-center text-gray-400 text-xl"
                 style={{ background: 'rgba(255,255,255,0.06)' }}>✕</button>
             </div>
@@ -433,7 +435,7 @@ export default function Syndicates() {
             {/* Fixed bottom buttons — always visible */}
             <div className="flex-shrink-0 px-4 pt-3 pb-6 flex gap-3"
               style={{ borderTop: '1px solid rgba(255,255,255,0.06)', background: '#0d0d0d' }}>
-              <button onClick={() => setShowCreate(false)}
+              <button onClick={() => { setShowCreate(false); setHideNav(false) }}
                 className="flex-1 py-4 rounded-xl text-sm font-bold text-gray-400"
                 style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}>
                 Отмена

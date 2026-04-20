@@ -52,7 +52,7 @@ export default function AdminTables() {
     try {
       const payload: any = { ...form }
       if (!form.is_private) delete payload.password
-      if (editId) await api.post(`/admin/tables/${editId}`, payload)
+      if (editId) await api.put(`/admin/tables/${editId}`, payload)
       else await api.post('/admin/tables', payload)
       setShowForm(false); load()
     } catch (e: any) { setError(e.message || 'Ошибка') }

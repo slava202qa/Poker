@@ -70,6 +70,7 @@ export default function Tables() {
   const navigate = useNavigate()
   const api = useApi()
   const user = useStore((s) => s.user)
+  const setHideNav = useStore((s) => s.setHideNav)
 
   const loadTables = () => {
     setLoading(true)
@@ -105,6 +106,7 @@ export default function Tables() {
       const t = await api.post<Table>('/tables', payload)
       setCreatedTable(t)
       setShowCreate(false)
+      setHideNav(false)
       setForm(EMPTY_FORM)
       loadTables()
     } catch (e: any) {
@@ -139,7 +141,7 @@ export default function Tables() {
           className="text-lg font-extrabold tracking-tight">
           {isVip ? '♠ VIP Столы' : '♣ Открытые Столы'}
         </motion.h2>
-        <button onClick={() => { setShowCreate(true); setCreateError(''); setCreatedTable(null) }}
+        <button onClick={() => { setShowCreate(true); setCreateError(''); setCreatedTable(null); setHideNav(true) }}
           className="text-xs font-bold px-3 py-2 rounded-xl transition-all"
           style={{ background: 'rgba(212,168,67,0.1)', border: '1px solid rgba(212,168,67,0.25)', color: '#d4a843' }}>
           + Создать стол
@@ -180,7 +182,7 @@ export default function Tables() {
             <div className="flex items-center justify-between px-4 pt-5 pb-3 flex-shrink-0"
               style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
               <h3 className="text-lg font-extrabold text-poker-gold">♠ Создать стол</h3>
-              <button onClick={() => { setShowCreate(false); setCreateError('') }}
+              <button onClick={() => { setShowCreate(false); setCreateError(''); setHideNav(false) }}
                 className="w-9 h-9 rounded-xl flex items-center justify-center text-gray-400 text-xl"
                 style={{ background: 'rgba(255,255,255,0.06)' }}>✕</button>
             </div>

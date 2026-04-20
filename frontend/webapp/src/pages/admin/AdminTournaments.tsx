@@ -64,7 +64,7 @@ export default function AdminTournaments() {
 
   const handleCancel = async (id: number) => {
     if (!confirm('Отменить турнир?')) return
-    try { await api.post(`/admin/tournaments/${id}`, { status: 'cancelled' }); load() } catch {}
+    try { await api.put(`/admin/tournaments/${id}`, { status: 'cancelled' }); load() } catch {}
   }
 
   const handleDelete = async (id: number) => {

@@ -36,6 +36,8 @@ interface AppState {
   setGameState: (state: GameState | null) => void
   isLoading: boolean
   setLoading: (loading: boolean) => void
+  hideNav: boolean
+  setHideNav: (v: boolean) => void
 }
 
 export const useStore = create<AppState>((set) => ({
@@ -45,4 +47,6 @@ export const useStore = create<AppState>((set) => ({
   setGameState: (gameState) => set({ gameState }),
   isLoading: true,
   setLoading: (isLoading) => set({ isLoading }),
+  hideNav: false,
+  setHideNav: (hideNav) => set({ hideNav }),
 }))

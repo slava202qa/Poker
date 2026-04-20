@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState } from "react"
 import { useNavigate, useLocation, Outlet } from "react-router-dom"
 import { motion } from "framer-motion"
 import { useApi } from "../../hooks/useApi"
@@ -23,17 +23,17 @@ export default function AdminLayout() {
   const navigate = useNavigate()
   const location = useLocation()
 
-  const checkAccess = useCallback(async () => {
+  async function checkAccess() {
     setAuthState("loading")
     setErrorMsg("")
 
-    // Wait up to 2s for Telegram WebApp to populate initData
-    for (let i = 0; i < 10; i++) {
-      if (window.Telegram?.WebApp?.initData) break
+    // Wait up to 3s for Telegram WebApp to populate initData
+    for (let i = 0; i < 15; i++) {
+      if ((window as any).Telegram?.WebApp?.initData) break
       await new Promise(r => setTimeout(r, 200))
     }
 
-    if (!window.Telegram?.WebApp?.initData) {
+    if (!(window as any).Telegram?.WebApp?.initData) {
       setAuthState("no_init_data")
       return
     }
@@ -42,13 +42,15 @@ export default function AdminLayout() {
       await api.get<any>("/admin/check")
       setAuthState("ok")
     } catch (e: any) {
-      const msg = String(e?.message ?? "")
-      setErrorMsg(msg)
+      const status = (e as any)?.status
+      const msg = String(e?.message ?? e?.detail ?? "Нет доступа")
+      // 403 = not admin, 401 = bad initData
+      setErrorMsg(`${msg} (HTTP ${status ?? '?'})`)
       setAuthState("forbidden")
     }
-  }, [])
+  }
 
-  useEffect(() => { checkAccess() }, [checkAccess])
+  useEffect(() => { checkAccess() }, [])
 
   if (authState === "loading") return (
     <div className="min-h-screen flex flex-col items-center justify-center gap-3">

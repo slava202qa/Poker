@@ -1,5 +1,6 @@
 import { useLocation, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
+import { useStore } from '../store/useStore'
 
 const tabs = [
   { path: '/', label: 'Главная', icon: (active: boolean) => (
@@ -32,9 +33,11 @@ const tabs = [
 export function BottomNav() {
   const location = useLocation()
   const navigate = useNavigate()
+  const hideNav = useStore((s) => s.hideNav)
 
   if (location.pathname.startsWith('/table/')) return null
   if (location.pathname.startsWith('/admin')) return null
+  if (hideNav) return null
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50">
