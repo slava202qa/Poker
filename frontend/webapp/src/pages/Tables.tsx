@@ -173,8 +173,8 @@ export default function Tables() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 20 }}
-            className="fixed z-[60] flex flex-col"
-            style={{ background: '#0d0d0d', top: 0, left: 0, right: 0, height: vh }}
+            className="fixed z-[70] flex flex-col"
+            style={{ background: '#0d0d0d', top: 0, left: 0, right: 0, bottom: 0 }}
           >
             {/* Header */}
             <div className="flex items-center justify-between px-4 pt-5 pb-3 flex-shrink-0"
@@ -297,9 +297,9 @@ export default function Tables() {
               {createError && <p className="text-sm text-red-400 text-center">{createError}</p>}
             </div>
 
-            {/* Fixed bottom — always visible */}
-            <div className="flex-shrink-0 px-4 pt-3"
-              style={{ borderTop: '1px solid rgba(255,255,255,0.06)', background: '#0d0d0d', paddingBottom: 'max(env(safe-area-inset-bottom), 24px)' }}>
+            {/* Fixed bottom — always visible, above BottomNav */}
+            <div className="flex-shrink-0 px-4 pt-3 pb-6"
+              style={{ borderTop: '1px solid rgba(255,255,255,0.06)', background: '#0d0d0d' }}>
               <button onClick={handleCreate} disabled={creating}
                 className="w-full btn-gold py-4 text-sm font-bold rounded-xl disabled:opacity-50">
                 {creating ? 'Создаём...' : '⚔️ Создать стол'}

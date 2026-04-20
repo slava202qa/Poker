@@ -1,5 +1,9 @@
 """Profile API: real stats from PlayerStats table, leaderboard."""
-from fastapi import APIRouter, Depends
+import os
+import uuid
+import shutil
+
+from fastapi import APIRouter, Depends, File, UploadFile
 from pydantic import BaseModel
 from sqlalchemy import select, func, desc
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,6 +15,8 @@ from app.models.balance import Transaction, TxType
 from app.models.shop import PlayerStats
 
 router = APIRouter(prefix="/profile", tags=["profile"])
+
+UPLOAD_DIR = os.environ.get("UPLOAD_DIR", "/app/uploads")
 
 
 class ProfileResponse(BaseModel):
@@ -150,17 +156,15 @@ async def update_profile(
 
 @router.post("/me/avatar")
 async def upload_avatar(
-    file: "UploadFile" = __import__("fastapi", fromlist=["File", "UploadFile"]).File(...),
+    file: UploadFile = File(...),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    import os, uuid, shutil
-    from fastapi import UploadFile
-    UPLOAD_DIR = os.environ.get("UPLOAD_DIR", "/app/uploads")
+    from fastapi import HTTPException
     os.makedirs(UPLOAD_DIR, exist_ok=True)
     ext = os.path.splitext(file.filename or "")[1].lower() or ".jpg"
     if ext not in (".jpg", ".jpeg", ".png", ".webp"):
-        raise __import__("fastapi", fromlist=["HTTPException"]).HTTPException(400, "Только jpg/png/webp")
+        raise HTTPException(400, "Только jpg/png/webp")
     fname = f"avatar_{user.id}_{uuid.uuid4().hex[:8]}{ext}"
     fpath = os.path.join(UPLOAD_DIR, fname)
     with open(fpath, "wb") as f:

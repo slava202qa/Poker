@@ -384,8 +384,8 @@ export default function Syndicates() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed z-[60] flex flex-col"
-            style={{ background: '#0d0d0d', top: 0, left: 0, right: 0, height: vh }}
+            className="fixed z-[70] flex flex-col"
+            style={{ background: '#0d0d0d', top: 0, left: 0, right: 0, bottom: 0 }}
           >
             {/* Header */}
             <div className="flex items-center justify-between px-4 pt-5 pb-3 flex-shrink-0"
@@ -431,8 +431,8 @@ export default function Syndicates() {
             </div>
 
             {/* Fixed bottom buttons — always visible */}
-            <div className="flex-shrink-0 px-4 pt-3 flex gap-3"
-              style={{ borderTop: '1px solid rgba(255,255,255,0.06)', background: '#0d0d0d', paddingBottom: 'max(env(safe-area-inset-bottom), 24px)' }}>
+            <div className="flex-shrink-0 px-4 pt-3 pb-6 flex gap-3"
+              style={{ borderTop: '1px solid rgba(255,255,255,0.06)', background: '#0d0d0d' }}>
               <button onClick={() => setShowCreate(false)}
                 className="flex-1 py-4 rounded-xl text-sm font-bold text-gray-400"
                 style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}>
