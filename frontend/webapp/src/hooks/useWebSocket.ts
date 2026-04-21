@@ -13,11 +13,13 @@ export function useWebSocket(tableId: number | null) {
   const { initData } = useTelegram()
 
   const connect = useCallback(() => {
-    if (!tableId || !initData) return
+    if (!tableId) return
+    // Always read initData fresh from window — avoids stale closure
+    const currentInitData = (window as any).Telegram?.WebApp?.initData ?? initData ?? ''
+    if (!currentInitData) return
 
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-    // initData passed as query param — validated server-side via HMAC
-    const url = `${protocol}//${window.location.host}/ws/table/${tableId}?initData=${encodeURIComponent(initData)}`
+    const url = `${protocol}//${window.location.host}/ws/table/${tableId}?initData=${encodeURIComponent(currentInitData)}`
 
     const ws = new WebSocket(url)
     wsRef.current = ws

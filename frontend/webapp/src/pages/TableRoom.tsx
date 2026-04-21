@@ -5,6 +5,7 @@ import { useTelegram } from '../hooks/useTelegram'
 import { useWebSocket } from '../hooks/useWebSocket'
 import { useSound } from '../hooks/useSound'
 import { useStore } from '../store/useStore'
+import { useApi } from '../hooks/useApi'
 import { PlayingCard } from '../components/PlayingCard'
 import { PlayerSeat } from '../components/PlayerSeat'
 import { ActionPanel } from '../components/ActionPanel'
@@ -43,6 +44,16 @@ export default function TableRoom() {
   const sound = useSound()
 
   const { send } = useWebSocket(tableId ? Number(tableId) : null)
+  const api = useApi()
+
+  // Join modal state
+  const [tableInfo, setTableInfo] = useState<any>(null)
+  const [showJoin, setShowJoin] = useState(false)
+  const [joinSeat, setJoinSeat] = useState(1)
+  const [joinBuyIn, setJoinBuyIn] = useState(200)
+  const [joining, setJoining] = useState(false)
+  const [joinError, setJoinError] = useState('')
+  const [hasJoined, setHasJoined] = useState(false)
 
   const [timer, setTimer] = useState(30)
   const [flyingChips, setFlyingChips] = useState<FlyingChip[]>([])
@@ -52,6 +63,46 @@ export default function TableRoom() {
   const prevStreetRef = useRef<string>('')
   const prevPotRef = useRef<number>(0)
   const prevHandRef = useRef<boolean>(false)
+
+  // Load table info and show join modal if not already seated
+  useEffect(() => {
+    if (!tableId) return
+    api.get<any>(`/tables/${tableId}`).then(t => {
+      setTableInfo(t)
+      // Check if already in game state as a player
+      const alreadySeated = gameState?.players?.some((p: any) => p.user_id === storeUser?.id)
+      if (!alreadySeated && !hasJoined) {
+        setJoinBuyIn(t.min_buy_in ?? 200)
+        setShowJoin(true)
+      }
+    }).catch(() => {})
+  }, [tableId])
+
+  async function handleJoin() {
+    if (joining || !tableId) return
+    setJoining(true)
+    setJoinError('')
+    try {
+      await api.post(`/tables/${tableId}/join`, {
+        seat: joinSeat,
+        buy_in: joinBuyIn,
+      })
+      setHasJoined(true)
+      setShowJoin(false)
+    } catch (e: any) {
+      setJoinError(e.message || 'Ошибка при входе за стол')
+    } finally {
+      setJoining(false)
+    }
+  }
+
+  async function handleLeave() {
+    if (!tableId) return
+    try {
+      await api.post(`/tables/${tableId}/leave`, {})
+    } catch {}
+    navigate('/tables')
+  }
 
   // ── Sound + animation triggers ──────────────────────────────────────────────
   useEffect(() => {
@@ -341,18 +392,108 @@ export default function TableRoom() {
             isMyTurn={isMyTurn}
           />
         ) : (
-          <div className="text-center py-4">
-            <motion.button
-              whileTap={{ scale: 0.95 }}
-              whileHover={{ scale: 1.02 }}
-              onClick={() => send({ type: 'start_hand' })}
-              className="btn-gold px-8 py-3"
-            >
-              Начать раздачу
+          <div className="text-center py-4 flex gap-3 justify-center flex-wrap">
+            {myPlayer ? (
+              <motion.button whileTap={{ scale: 0.95 }} onClick={() => send({ type: 'start_hand' })}
+                className="btn-gold px-8 py-3">
+                Начать раздачу
+              </motion.button>
+            ) : (
+              <motion.button whileTap={{ scale: 0.95 }} onClick={() => setShowJoin(true)}
+                className="btn-gold px-8 py-3">
+                🪑 Сесть за стол
+              </motion.button>
+            )}
+            <motion.button whileTap={{ scale: 0.95 }} onClick={handleLeave}
+              className="px-6 py-3 rounded-xl text-sm text-gray-400"
+              style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}>
+              Выйти
             </motion.button>
           </div>
         )}
       </div>
+
+      {/* ── Join Modal ── */}
+      <AnimatePresence>
+        {showJoin && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[80] flex items-end justify-center"
+            style={{ background: 'rgba(0,0,0,0.7)' }}>
+            <motion.div initial={{ y: 80 }} animate={{ y: 0 }} exit={{ y: 80 }}
+              className="w-full max-w-md rounded-t-3xl p-6"
+              style={{ background: '#111', border: '1px solid rgba(212,168,67,0.2)' }}>
+
+              <div className="flex items-center justify-between mb-5">
+                <div>
+                  <h2 className="font-extrabold text-lg">Сесть за стол</h2>
+                  {tableInfo && (
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      {tableInfo.name} · {tableInfo.small_blind}/{tableInfo.big_blind} · {tableInfo.currency?.toUpperCase()}
+                    </p>
+                  )}
+                </div>
+                <button onClick={() => { setShowJoin(false); navigate('/tables') }}
+                  className="w-8 h-8 rounded-xl flex items-center justify-center text-gray-500"
+                  style={{ background: 'rgba(255,255,255,0.06)' }}>✕</button>
+              </div>
+
+              {/* Seat selector */}
+              <div className="mb-4">
+                <label className="text-[10px] text-gray-500 uppercase tracking-wider mb-2 block">Место</label>
+                <div className="grid grid-cols-5 gap-2">
+                  {[1,2,3,4,5,6,7,8,9].slice(0, tableInfo?.max_players ?? 6).map(s => {
+                    const taken = gameState?.players?.some((p: any) => p.seat === s)
+                    return (
+                      <button key={s} disabled={taken} onClick={() => setJoinSeat(s)}
+                        className="py-2 rounded-xl text-sm font-bold transition-all disabled:opacity-30"
+                        style={{
+                          background: joinSeat === s ? 'rgba(212,168,67,0.2)' : 'rgba(255,255,255,0.04)',
+                          border: `1px solid ${joinSeat === s ? 'rgba(212,168,67,0.5)' : 'rgba(255,255,255,0.08)'}`,
+                          color: joinSeat === s ? '#d4a843' : '#9ca3af',
+                        }}>
+                        {taken ? '✗' : s}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* Buy-in */}
+              <div className="mb-5">
+                <label className="text-[10px] text-gray-500 uppercase tracking-wider mb-2 block">
+                  Сумма входа {tableInfo && `(${tableInfo.min_buy_in}–${tableInfo.max_buy_in})`}
+                </label>
+                <input type="number" value={joinBuyIn}
+                  min={tableInfo?.min_buy_in ?? 100}
+                  max={tableInfo?.max_buy_in ?? 10000}
+                  onChange={e => setJoinBuyIn(Number(e.target.value))}
+                  className="w-full rounded-xl px-4 py-3 text-white text-lg font-bold outline-none"
+                  style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(212,168,67,0.2)' }} />
+                {/* Quick presets */}
+                <div className="flex gap-2 mt-2">
+                  {[tableInfo?.min_buy_in, tableInfo?.min_buy_in * 2, tableInfo?.max_buy_in].filter(Boolean).map((v: number) => (
+                    <button key={v} onClick={() => setJoinBuyIn(v)}
+                      className="flex-1 py-1.5 rounded-lg text-xs font-bold"
+                      style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: '#9ca3af' }}>
+                      {v}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {joinError && (
+                <p className="text-red-400 text-xs mb-3 text-center">{joinError}</p>
+              )}
+
+              <button onClick={handleJoin} disabled={joining}
+                className="w-full py-4 rounded-2xl font-extrabold text-base disabled:opacity-50"
+                style={{ background: 'linear-gradient(90deg,#d4a843,#f0d078)', color: '#0a0a0a' }}>
+                {joining ? 'Входим...' : `Сесть за стол · ${joinBuyIn} ${tableInfo?.currency?.toUpperCase() ?? 'RR'}`}
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }
