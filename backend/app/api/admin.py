@@ -703,6 +703,8 @@ class ShopItemOut(BaseModel):
     vip_days: int
     is_active: bool
     created_at: str
+    unlock_type: str = "purchase"
+    unlock_ref: str | None = None
 
 
 @router.get("/shop/items", response_model=list[ShopItemOut])
@@ -712,12 +714,18 @@ async def admin_list_shop_items(
 ):
     result = await db.execute(select(ShopItem).order_by(ShopItem.created_at.desc()))
     items = result.scalars().all()
-    return [ShopItemOut(
-        id=i.id, item_key=i.item_key, name=i.name, description=i.description,
-        item_type=i.item_type.value, rarity=i.rarity.value, price=float(i.price),
-        icon=i.icon, image_url=i.image_url, vip_days=i.vip_days,
-        is_active=i.is_active, created_at=i.created_at.isoformat(),
-    ) for i in items]
+    def _si(i: ShopItem) -> ShopItemOut:
+        it = i.item_type.value if hasattr(i.item_type, 'value') else str(i.item_type)
+        ir = i.rarity.value if hasattr(i.rarity, 'value') else str(i.rarity)
+        return ShopItemOut(
+            id=i.id, item_key=i.item_key, name=i.name, description=i.description,
+            item_type=it.lower(), rarity=ir.lower(), price=float(i.price),
+            icon=i.icon, image_url=i.image_url, vip_days=i.vip_days,
+            is_active=i.is_active, created_at=i.created_at.isoformat(),
+            unlock_type=getattr(i, 'unlock_type', 'purchase') or 'purchase',
+            unlock_ref=getattr(i, 'unlock_ref', None),
+        )
+    return [_si(i) for i in items]
 
 
 @router.post("/shop/items", response_model=ShopItemOut)
@@ -730,6 +738,8 @@ async def admin_create_shop_item(
     description: str = Form(""),
     icon: str = Form("🎁"),
     vip_days: int = Form(0),
+    unlock_type: str = Form("purchase"),
+    unlock_ref: str = Form(""),
     image: UploadFile | None = File(None),
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(require_admin),
@@ -753,21 +763,26 @@ async def admin_create_shop_item(
     item = ShopItem(
         item_key=item_key, name=name,
         description=description or None,
-        item_type=ItemType(item_type),
-        rarity=ItemRarity(rarity),
+        item_type=item_type.upper(),
+        rarity=rarity.upper(),
         price=price, icon=icon or None,
         image_url=image_url,
         vip_days=vip_days, is_active=True,
+        unlock_type=unlock_type or 'purchase',
+        unlock_ref=unlock_ref or None,
     )
     db.add(item)
     await db.flush()
     await db.refresh(item)
+    it = item.item_type.value if hasattr(item.item_type, 'value') else str(item.item_type)
+    ir = item.rarity.value if hasattr(item.rarity, 'value') else str(item.rarity)
     return ShopItemOut(
         id=item.id, item_key=item.item_key, name=item.name,
-        description=item.description, item_type=item.item_type.value,
-        rarity=item.rarity.value, price=float(item.price),
+        description=item.description, item_type=it.lower(),
+        rarity=ir.lower(), price=float(item.price),
         icon=item.icon, image_url=item.image_url, vip_days=item.vip_days,
         is_active=item.is_active, created_at=item.created_at.isoformat(),
+        unlock_type=item.unlock_type, unlock_ref=item.unlock_ref,
     )
 
 

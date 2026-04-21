@@ -27,9 +27,16 @@ const TYPE_LABEL: Record<string, string> = {
   card_skin: '🃏 Скин карт', avatar_frame: '🖼 Рамка', emote: '😎 Эмоция', vip: '👑 VIP',
 }
 
+const UNLOCK_TYPES = [
+  { value: 'purchase',    label: '💰 Покупка за RR' },
+  { value: 'achievement', label: '🏆 За достижение' },
+  { value: 'tournament',  label: '🏅 За турнир' },
+]
+
 const EMPTY = {
   name: '', item_key: '', item_type: 'card_skin', rarity: 'common',
   price: 0, description: '', icon: '🎁', vip_days: 0,
+  unlock_type: 'purchase', unlock_ref: '',
 }
 
 export default function AdminShop() {
@@ -168,6 +175,8 @@ function ItemForm({ initial, onClose, onSaved, onError }: {
     name: initial.name, item_key: initial.item_key, item_type: initial.item_type,
     rarity: initial.rarity, price: initial.price, description: initial.description ?? '',
     icon: initial.icon ?? '🎁', vip_days: initial.vip_days,
+    unlock_type: (initial as any).unlock_type ?? 'purchase',
+    unlock_ref: (initial as any).unlock_ref ?? '',
   } : { ...EMPTY })
   const [preview, setPreview] = useState<string | null>(initial?.image_url ?? null)
   const [file, setFile] = useState<File | null>(null)
@@ -238,8 +247,8 @@ function ItemForm({ initial, onClose, onSaved, onError }: {
         {[
           { label: 'Название', key: 'name', type: 'text', full: true },
           { label: 'Ключ (item_key)', key: 'item_key', type: 'text', full: true },
-          { label: 'Цена (RR)', key: 'price', type: 'number' },
-          { label: 'Иконка (emoji)', key: 'icon', type: 'text' },
+          { label: 'Иконка (emoji)', key: 'icon', type: 'text', full: false },
+          { label: 'VIP дней (0=∞)', key: 'vip_days', type: 'number', full: false },
         ].map(f => (
           <div key={f.key} className={f.full ? 'col-span-2' : ''}>
             <label className="text-[10px] text-gray-600 uppercase tracking-wider mb-1 block">{f.label}</label>
@@ -269,6 +278,49 @@ function ItemForm({ initial, onClose, onSaved, onError }: {
           </select>
         </div>
       </div>
+
+      {/* Unlock type */}
+      <div>
+        <label className="text-[10px] text-gray-600 uppercase tracking-wider mb-1 block">Способ получения</label>
+        <div className="grid grid-cols-3 gap-1.5">
+          {UNLOCK_TYPES.map(u => (
+            <button key={u.value} onClick={() => set('unlock_type', u.value)}
+              className="py-2 px-1 rounded-xl text-xs font-bold text-center transition-all"
+              style={{
+                background: form.unlock_type === u.value ? 'rgba(212,168,67,0.15)' : 'rgba(255,255,255,0.03)',
+                border: `1px solid ${form.unlock_type === u.value ? 'rgba(212,168,67,0.5)' : 'rgba(255,255,255,0.08)'}`,
+                color: form.unlock_type === u.value ? '#d4a843' : '#9ca3af',
+              }}>
+              {u.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Unlock ref — shown for achievement/tournament */}
+      {form.unlock_type !== 'purchase' && (
+        <div>
+          <label className="text-[10px] text-gray-600 uppercase tracking-wider mb-1 block">
+            {form.unlock_type === 'achievement' ? 'Ключ достижения' : 'Ключ турнира / место'}
+          </label>
+          <input type="text" value={form.unlock_ref}
+            onChange={e => set('unlock_ref', e.target.value)}
+            placeholder={form.unlock_type === 'achievement' ? 'например: first_win' : 'например: weekly_1st'}
+            className="w-full rounded-xl px-3 py-2 text-sm text-white outline-none"
+            style={{ background: '#121212', border: '1px solid rgba(255,255,255,0.1)' }} />
+        </div>
+      )}
+
+      {/* Price — hidden for non-purchase */}
+      {form.unlock_type === 'purchase' && (
+        <div>
+          <label className="text-[10px] text-gray-600 uppercase tracking-wider mb-1 block">Цена (RR)</label>
+          <input type="number" value={form.price}
+            onChange={e => set('price', parseFloat(e.target.value) || 0)}
+            className="w-full rounded-xl px-3 py-2 text-sm text-white outline-none"
+            style={{ background: '#121212', border: '1px solid rgba(255,255,255,0.1)' }} />
+        </div>
+      )}
 
       <div>
         <label className="text-[10px] text-gray-600 uppercase tracking-wider mb-1 block">Описание</label>

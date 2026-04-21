@@ -36,6 +36,10 @@ class ShopItem(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     # For VIP: duration in days (0 = permanent)
     vip_days: Mapped[int] = mapped_column(Integer, default=0)
+    # How the item is unlocked: 'purchase' | 'achievement' | 'tournament'
+    unlock_type: Mapped[str] = mapped_column(String(16), default='purchase', nullable=False, server_default='purchase')
+    # For achievement unlock: which achievement key
+    unlock_ref: Mapped[str | None] = mapped_column(String(128), nullable=True)
     created_at: Mapped[datetime.datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
