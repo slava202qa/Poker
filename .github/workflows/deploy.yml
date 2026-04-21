@@ -8,34 +8,38 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Setup SSH key
+      - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -H 37.60.239.25 >> ~/.ssh/known_hosts 2>/dev/null
-          # Verify key format
-          ssh-keygen -l -f ~/.ssh/deploy_key && echo "Key format OK" || echo "Key format ERROR"
-
-      - name: Test SSH connection
-        run: |
-          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -o ConnectTimeout=15 root@37.60.239.25 "echo 'SSH connection OK'"
 
       - name: Deploy
         run: |
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no root@37.60.239.25 << 'DEPLOY'
             set -e
             cd /opt/poker
+
+            # Pull latest code
             git fetch origin main
             git reset --hard origin/main
+
+            # Rebuild and restart containers
             docker compose down --remove-orphans || true
             docker container prune -f || true
             docker compose up --build -d
+
+            # Wait for DB to be ready
             echo "Waiting for DB..."
             for i in $(seq 1 30); do
               docker compose exec -T db pg_isready -U poker && break || sleep 2
             done
+
+            # Apply all pending migrations
             docker compose exec -T backend alembic upgrade head
+
+            # Show final status
             docker compose ps
             echo "=== Deploy complete ==="
           DEPLOY

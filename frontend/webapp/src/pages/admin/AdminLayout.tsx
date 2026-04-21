@@ -1,7 +1,10 @@
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import { useNavigate, useLocation, Outlet } from "react-router-dom"
 import { motion } from "framer-motion"
 import { useApi } from "../../hooks/useApi"
+
+// Cache admin auth result for the session — avoids re-checking on every tab switch
+let _adminAuthCache: { state: "ok" | "forbidden" | "no_init_data"; msg: string } | null = null
 
 const tabs = [
   { path: "/admin",              label: "Обзор",      icon: "📊" },
@@ -23,7 +26,14 @@ export default function AdminLayout() {
   const navigate = useNavigate()
   const location = useLocation()
 
-  async function checkAccess() {
+  async function checkAccess(force = false) {
+    // Use cached result if available and not forcing re-check
+    if (!force && _adminAuthCache) {
+      setAuthState(_adminAuthCache.state)
+      setErrorMsg(_adminAuthCache.msg)
+      return
+    }
+
     setAuthState("loading")
     setErrorMsg("")
 
@@ -36,26 +46,31 @@ export default function AdminLayout() {
     }
 
     if (!initData) {
+      _adminAuthCache = { state: "no_init_data", msg: "" }
       setAuthState("no_init_data")
       return
     }
 
     try {
-      // Use fetch directly — avoids any hook closure issues
       const res = await fetch("/api/admin/check", {
         headers: { "X-Init-Data": initData, "Content-Type": "application/json" },
       })
       if (res.ok) {
+        _adminAuthCache = { state: "ok", msg: "" }
         setAuthState("ok")
       } else {
         let detail = "Нет доступа"
         try { const j = await res.json(); detail = j.detail ?? detail } catch {}
-        setErrorMsg(`${detail} (HTTP ${res.status})`)
+        const msg = `${detail} (HTTP ${res.status})`
+        _adminAuthCache = { state: "forbidden", msg }
+        setErrorMsg(msg)
         setAuthState("forbidden")
       }
     } catch (e: any) {
-      setErrorMsg(`Сеть: ${e?.message ?? "ошибка соединения"}`)
+      const msg = `Сеть: ${e?.message ?? "ошибка соединения"}`
+      setErrorMsg(msg)
       setAuthState("forbidden")
+      // Don't cache network errors — allow retry
     }
   }
 
@@ -88,7 +103,7 @@ export default function AdminLayout() {
           <p className="text-red-400 text-xs mb-3 font-mono break-all">{errorMsg}</p>
         )}
         <div className="flex gap-3 justify-center">
-          <button onClick={checkAccess} className="btn-gold px-5 py-2.5 text-sm">Повторить</button>
+          <button onClick={() => { _adminAuthCache = null; checkAccess(true) }} className="btn-gold px-5 py-2.5 text-sm">Повторить</button>
           <button onClick={() => navigate("/")} className="px-5 py-2.5 text-sm text-gray-400 border border-gray-700 rounded-xl">На главную</button>
         </div>
       </div>
