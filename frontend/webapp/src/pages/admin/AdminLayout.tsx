@@ -27,25 +27,34 @@ export default function AdminLayout() {
     setAuthState("loading")
     setErrorMsg("")
 
-    // Wait up to 3s for Telegram WebApp to populate initData
-    for (let i = 0; i < 15; i++) {
-      if ((window as any).Telegram?.WebApp?.initData) break
+    // Wait up to 4s for Telegram WebApp to populate initData
+    let initData = ""
+    for (let i = 0; i < 20; i++) {
+      initData = (window as any).Telegram?.WebApp?.initData ?? ""
+      if (initData) break
       await new Promise(r => setTimeout(r, 200))
     }
 
-    if (!(window as any).Telegram?.WebApp?.initData) {
+    if (!initData) {
       setAuthState("no_init_data")
       return
     }
 
     try {
-      await api.get<any>("/admin/check")
-      setAuthState("ok")
+      // Use fetch directly — avoids any hook closure issues
+      const res = await fetch("/api/admin/check", {
+        headers: { "X-Init-Data": initData, "Content-Type": "application/json" },
+      })
+      if (res.ok) {
+        setAuthState("ok")
+      } else {
+        let detail = "Нет доступа"
+        try { const j = await res.json(); detail = j.detail ?? detail } catch {}
+        setErrorMsg(`${detail} (HTTP ${res.status})`)
+        setAuthState("forbidden")
+      }
     } catch (e: any) {
-      const status = (e as any)?.status
-      const msg = String(e?.message ?? e?.detail ?? "Нет доступа")
-      // 403 = not admin, 401 = bad initData
-      setErrorMsg(`${msg} (HTTP ${status ?? '?'})`)
+      setErrorMsg(`Сеть: ${e?.message ?? "ошибка соединения"}`)
       setAuthState("forbidden")
     }
   }
