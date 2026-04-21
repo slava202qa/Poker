@@ -11,8 +11,8 @@ jobs:
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
+          host: 37.60.239.25
+          username: root
           key: ${{ secrets.VPS_SSH_KEY }}
           port: 22
           command_timeout: 10m
@@ -20,24 +20,19 @@ jobs:
             set -e
             cd /opt/poker
 
-            # Pull latest code
             git fetch origin main
             git reset --hard origin/main
 
-            # Clean restart to avoid container name conflicts
             docker compose down --remove-orphans || true
             docker container prune -f || true
             docker compose up --build -d
 
-            # Wait for DB
             echo "Waiting for DB..."
             for i in $(seq 1 30); do
               docker compose exec -T db pg_isready -U poker && break || sleep 2
             done
 
-            # Run migrations
             docker compose exec -T backend alembic upgrade head
 
-            # Show status
             docker compose ps
             echo "=== Deploy complete ==="
