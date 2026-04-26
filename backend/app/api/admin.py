@@ -794,6 +794,11 @@ async def admin_update_shop_item(
     description: str = Form(None),
     icon: str = Form(None),
     is_active: bool = Form(None),
+    rarity: str = Form(None),
+    item_type: str = Form(None),
+    vip_days: int = Form(None),
+    unlock_type: str = Form(None),
+    unlock_ref: str = Form(None),
     image: UploadFile | None = File(None),
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(require_admin),
@@ -808,6 +813,11 @@ async def admin_update_shop_item(
     if description is not None: item.description = description
     if icon is not None: item.icon = icon
     if is_active is not None: item.is_active = is_active
+    if rarity is not None: item.rarity = rarity.upper()
+    if item_type is not None: item.item_type = item_type.upper()
+    if vip_days is not None: item.vip_days = vip_days
+    if unlock_type is not None: item.unlock_type = unlock_type
+    if unlock_ref is not None: item.unlock_ref = unlock_ref or None
 
     if image and image.filename:
         ext = os.path.splitext(image.filename)[1].lower()
