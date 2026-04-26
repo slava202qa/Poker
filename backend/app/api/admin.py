@@ -1028,6 +1028,80 @@ async def withdraw_contract_fees(
     return result
 
 
+# ── Financial Dashboard ──
+
+@router.get("/finance")
+async def admin_finance(
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_admin),
+    settings: Settings = Depends(get_settings),
+):
+    """
+    Financial overview:
+    - Total Supply: all RR ever minted (deposits + bonuses + referrals)
+    - Liability: RR currently held by users (sum of all balances)
+    - Revenue: rake collected (RR)
+    - Net Income: revenue minus bonuses paid out
+    """
+    # Total supply = all positive inflows credited to users
+    supply_types = [TxType.DEPOSIT, TxType.BONUS, TxType.REFERRAL,
+                    TxType.TOURNAMENT_PRIZE, TxType.FUN_REFILL, TxType.SYNDICATE_CLAIM]
+    total_supply = float((await db.execute(
+        select(func.coalesce(func.sum(Transaction.amount), 0))
+        .where(Transaction.tx_type.in_(supply_types), Transaction.amount > 0)
+    )).scalar() or 0)
+
+    # Liability = sum of all current chip balances
+    liability = float((await db.execute(
+        select(func.coalesce(func.sum(Balance.amount), 0))
+    )).scalar() or 0)
+
+    # Revenue = total rake collected
+    revenue = abs(float((await db.execute(
+        select(func.coalesce(func.sum(Transaction.amount), 0))
+        .where(Transaction.tx_type == TxType.RAKE)
+    )).scalar() or 0))
+
+    # Bonuses paid out (referral + bonus adjustments)
+    bonuses_paid = float((await db.execute(
+        select(func.coalesce(func.sum(Transaction.amount), 0))
+        .where(Transaction.tx_type.in_([TxType.BONUS, TxType.REFERRAL]), Transaction.amount > 0)
+    )).scalar() or 0)
+
+    net_income = revenue - bonuses_paid
+
+    # Total deposited / withdrawn
+    total_deposited = float((await db.execute(
+        select(func.coalesce(func.sum(Transaction.amount), 0))
+        .where(Transaction.tx_type == TxType.DEPOSIT)
+    )).scalar() or 0)
+
+    total_withdrawn = abs(float((await db.execute(
+        select(func.coalesce(func.sum(Transaction.amount), 0))
+        .where(Transaction.tx_type == TxType.WITHDRAW)
+    )).scalar() or 0))
+
+    # Rates
+    rr_per_usd = round(1 / settings.rate_usdt_per_rr)
+    rr_per_ton = round(1 / settings.rate_ton_per_rr)
+
+    return {
+        "total_supply": round(total_supply, 2),
+        "liability": round(liability, 2),
+        "revenue": round(revenue, 2),
+        "bonuses_paid": round(bonuses_paid, 2),
+        "net_income": round(net_income, 2),
+        "total_deposited": round(total_deposited, 2),
+        "total_withdrawn": round(total_withdrawn, 2),
+        "rates": {
+            "rr_per_usd": rr_per_usd,
+            "rr_per_ton": rr_per_ton,
+            "usd_per_rr": round(settings.rate_usdt_per_rr, 6),
+            "ton_per_rr": round(settings.rate_ton_per_rr, 6),
+        },
+    }
+
+
 # ── Admin Syndicates (Cartels) ──
 
 @router.get("/syndicates")

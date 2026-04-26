@@ -21,6 +21,12 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
+# Log all 500 errors with full traceback
+import traceback
+from fastapi import Request
+from fastapi.responses import JSONResponse
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup: create tables
@@ -71,6 +77,18 @@ app.add_middleware(
 )
 
 app.include_router(api_router)
+
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.error(
+        "Unhandled exception on %s %s\n%s",
+        request.method,
+        request.url,
+        traceback.format_exc(),
+    )
+    return JSONResponse(status_code=500, content={"detail": "Internal server error"})
+
 
 # Serve uploaded images
 _upload_dir = os.environ.get("UPLOAD_DIR", "/app/uploads")

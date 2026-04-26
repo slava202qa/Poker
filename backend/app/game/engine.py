@@ -10,7 +10,7 @@ from enum import Enum
 from typing import Callable, Awaitable
 
 from app.game.deck import Deck, Card
-from app.game.hand_evaluator import evaluate_hand, HandRank
+from app.game.hand_evaluator import evaluate_hand, evaluate_omaha_hand, HandRank
 from app.game.player_fsm import PlayerState, PlayerStatus
 from app.game.pot import PotManager
 from app.game.table_fsm import Street, next_street
@@ -50,6 +50,7 @@ class GameEngine:
         big_blind: float,
         rake_percent: float = 3.0,
         turn_timeout: float = 30.0,
+        poker_type: str = "HOLDEM",
         broadcast: Callable[..., Awaitable] | None = None,
         on_hand_end: Callable[..., Awaitable] | None = None,
     ):
@@ -58,6 +59,7 @@ class GameEngine:
         self.big_blind = big_blind
         self.rake_percent = rake_percent
         self.turn_timeout = turn_timeout
+        self.poker_type = poker_type.upper()  # "HOLDEM" or "OMAHA"
         self.broadcast = broadcast  # async callback to push state to clients
         self.on_hand_end = on_hand_end  # called with (table_id, rake_amount, winners)
 
@@ -110,10 +112,11 @@ class GameEngine:
         # Advance dealer
         self._advance_dealer()
 
-        # Shuffle and deal
+        # Shuffle and deal (4 hole cards for Omaha, 2 for Hold'em)
         self.deck.reset()
+        hole_count = 4 if self.poker_type == "OMAHA" else 2
         for p in active:
-            p.hole_cards = self.deck.deal(2)
+            p.hole_cards = self.deck.deal(hole_count)
 
         # Post blinds
         sb_player, bb_player = self._get_blind_players()
@@ -384,11 +387,16 @@ class GameEngine:
             if p.status in (PlayerStatus.ACTIVE, PlayerStatus.ALL_IN)
         ]
 
-        # Evaluate hands
+        # Evaluate hands (Omaha: exactly 2 hole + 3 board; Hold'em: best 5 of 7)
         hand_results: dict[int, tuple[HandRank, list[int]]] = {}
         for p in not_folded:
-            all_cards = p.hole_cards + self.community_cards
-            hand_results[p.user_id] = evaluate_hand(all_cards)
+            if self.poker_type == "OMAHA":
+                hand_results[p.user_id] = evaluate_omaha_hand(
+                    p.hole_cards, self.community_cards
+                )
+            else:
+                all_cards = p.hole_cards + self.community_cards
+                hand_results[p.user_id] = evaluate_hand(all_cards)
 
         # Distribute pots
         total_rake = 0

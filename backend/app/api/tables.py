@@ -268,6 +268,7 @@ async def join_table(
 
     # FUN tables have 0% rake
     rake_override = 0.0 if cur == CurrencyType.FUN else None
+    ptype = table.poker_type.value if hasattr(table.poker_type, 'value') else str(table.poker_type or "HOLDEM")
     await game_manager.player_joined(
         table_id=table_id,
         user_id=user.id,
@@ -276,6 +277,7 @@ async def join_table(
         small_blind=float(table.small_blind),
         big_blind=float(table.big_blind),
         rake_override=rake_override,
+        poker_type=ptype.upper(),
     )
 
     return {"status": "joined", "seat": body.seat, "stack": body.buy_in}

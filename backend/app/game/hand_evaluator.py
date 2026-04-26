@@ -1,4 +1,4 @@
-"""Texas Hold'em hand evaluator. Evaluates best 5-card hand from 7 cards."""
+"""Hand evaluator for Texas Hold'em and Omaha poker."""
 from itertools import combinations
 from enum import IntEnum
 from app.game.deck import Card, Rank
@@ -99,6 +99,33 @@ def _check_straight(ranks: list[int]) -> tuple[bool, int]:
         return True, 5  # 5-high straight
 
     return False, 0
+
+
+def evaluate_omaha_hand(
+    hole_cards: list[Card],
+    community_cards: list[Card],
+) -> tuple[HandRank, list[int]]:
+    """
+    Omaha evaluator: must use exactly 2 of 4 hole cards and exactly 3 of 5
+    community cards. Returns the best (HandRank, kickers) achievable.
+    """
+    if len(hole_cards) != 4:
+        raise ValueError(f"Omaha requires exactly 4 hole cards, got {len(hole_cards)}")
+    if len(community_cards) < 3:
+        raise ValueError(f"Omaha requires at least 3 community cards, got {len(community_cards)}")
+
+    best_rank = HandRank.HIGH_CARD
+    best_kickers: list[int] = []
+
+    for hole_combo in combinations(hole_cards, 2):
+        for board_combo in combinations(community_cards, 3):
+            five = list(hole_combo) + list(board_combo)
+            rank, kickers = _evaluate_five(five)
+            if (rank, kickers) > (best_rank, best_kickers):
+                best_rank = rank
+                best_kickers = kickers
+
+    return best_rank, best_kickers
 
 
 def compare_hands(

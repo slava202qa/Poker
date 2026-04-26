@@ -31,8 +31,8 @@ class Settings(BaseSettings):
 
     # Exchange rates — RR per 1 unit of crypto
     # Inverse: 1 RR = rate_usdt_per_rr USDT, 1 RR = rate_ton_per_rr TON
-    rate_usdt_per_rr: float = 0.0227   # 1 RR = 0.0227 USDT  → 1 USDT ≈ 44 RR
-    rate_ton_per_rr: float  = 0.01724  # 1 RR = 0.01724 TON  → 1 TON  ≈ 58 RR
+    rate_usdt_per_rr: float = 0.022727  # 1 RR = 1/44 USDT  → 1 USDT = 44 RR
+    rate_ton_per_rr: float  = 0.016667  # 1 RR = 1/60 TON   → 1 TON  = 60 RR
 
     # Auto-pay threshold in USD — below this, pay automatically; above, manual review
     auto_pay_usd_limit: float = 100.0

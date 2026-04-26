@@ -17,10 +17,22 @@ interface Stats {
   system_balance: number
 }
 
+interface Finance {
+  total_supply: number
+  liability: number
+  revenue: number
+  bonuses_paid: number
+  net_income: number
+  total_deposited: number
+  total_withdrawn: number
+  rates: { rr_per_usd: number; rr_per_ton: number; usd_per_rr: number; ton_per_rr: number }
+}
+
 interface RefSettings { bonus_rr: number; total_referrals: number; total_bonus_paid: number }
 
 export default function Dashboard() {
   const [stats, setStats] = useState<Stats | null>(null)
+  const [finance, setFinance] = useState<Finance | null>(null)
   const [refSettings, setRefSettings] = useState<RefSettings | null>(null)
   const [bonusInput, setBonusInput] = useState('')
   const [bonusSaved, setBonusSaved] = useState(false)
@@ -28,6 +40,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     api.get<Stats>('/admin/stats').then(setStats).catch(() => {})
+    api.get<Finance>('/admin/finance').then(setFinance).catch(() => {})
     api.get<RefSettings>('/admin/referral/settings').then(s => { setRefSettings(s); setBonusInput(String(s.bonus_rr)) }).catch(() => {})
   }, [])
 
@@ -95,21 +108,60 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Financial overview */}
+      {/* Financial dashboard */}
       <div>
-        <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-3">Финансы</h3>
-        <div className="card-surface p-4 space-y-3">
+        <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-3">Финансовый дашборд</h3>
+
+        {/* Key metrics */}
+        <div className="grid grid-cols-2 gap-3 mb-3">
+          {[
+            { label: 'Total Supply', value: finance?.total_supply, color: 'text-blue-400', hint: 'Всего выпущено RR' },
+            { label: 'Liability', value: finance?.liability, color: 'text-yellow-400', hint: 'На руках у игроков' },
+            { label: 'Revenue', value: finance?.revenue, color: 'text-green-400', hint: 'Рейк собрано' },
+            { label: 'Net Income', value: finance?.net_income, color: finance && finance.net_income >= 0 ? 'text-green-400' : 'text-red-400', hint: 'Рейк − бонусы' },
+          ].map((m, i) => (
+            <motion.div key={m.label} initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.3 + i * 0.05 }} className="card-surface p-4">
+              <p className="text-[10px] text-gray-500 mb-0.5">{m.hint}</p>
+              <p className="text-xs text-gray-400 mb-1 font-semibold">{m.label}</p>
+              <p className={`text-lg font-bold ${m.color}`}>
+                {m.value != null ? m.value.toLocaleString('ru-RU', { maximumFractionDigits: 0 }) : '—'} <span className="text-xs font-normal">RR</span>
+              </p>
+            </motion.div>
+          ))}
+        </div>
+
+        {/* Deposits / Withdrawals / Balances */}
+        <div className="card-surface p-4 space-y-3 mb-3">
           <div className="flex justify-between">
-            <span className="text-gray-400">Всего депозитов</span>
-            <span className="text-green-400 font-bold">{stats.total_deposited.toFixed(2)} RR</span>
+            <span className="text-gray-400 text-sm">Депозиты</span>
+            <span className="text-green-400 font-bold">{(finance?.total_deposited ?? stats.total_deposited).toFixed(2)} RR</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-gray-400">Всего выводов</span>
-            <span className="text-red-400 font-bold">{stats.total_withdrawn.toFixed(2)} RR</span>
+            <span className="text-gray-400 text-sm">Выводы</span>
+            <span className="text-red-400 font-bold">{(finance?.total_withdrawn ?? stats.total_withdrawn).toFixed(2)} RR</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-gray-400 text-sm">Бонусы выплачено</span>
+            <span className="text-orange-400 font-bold">{(finance?.bonuses_paid ?? 0).toFixed(2)} RR</span>
           </div>
           <div className="border-t border-poker-border pt-3 flex justify-between">
-            <span className="text-gray-400">Балансы игроков</span>
+            <span className="text-gray-400 text-sm">Балансы игроков</span>
             <span className="text-poker-gold font-bold">{stats.system_balance.toFixed(2)} RR</span>
+          </div>
+        </div>
+
+        {/* Exchange rates */}
+        <div className="card-surface p-4">
+          <p className="text-xs text-gray-500 mb-3 font-semibold uppercase tracking-wider">Курсы обмена</p>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="text-center">
+              <p className="text-xs text-gray-500">1 USD</p>
+              <p className="text-lg font-bold text-poker-gold">{finance?.rates.rr_per_usd ?? 44} RR</p>
+            </div>
+            <div className="text-center">
+              <p className="text-xs text-gray-500">1 TON</p>
+              <p className="text-lg font-bold text-poker-gold">{finance?.rates.rr_per_ton ?? 60} RR</p>
+            </div>
           </div>
         </div>
       </div>

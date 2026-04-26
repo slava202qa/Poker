@@ -73,6 +73,7 @@ def get_or_create_engine(
     small_blind: float,
     big_blind: float,
     rake_override: float | None = None,
+    poker_type: str = "HOLDEM",
 ) -> GameEngine:
     """Get existing engine or create a new one for the table."""
     if table_id in _engines:
@@ -85,11 +86,12 @@ def get_or_create_engine(
         small_blind=small_blind,
         big_blind=big_blind,
         rake_percent=rake,
+        poker_type=poker_type,
         broadcast=_broadcast,
         on_hand_end=_on_hand_end,
     )
     _engines[table_id] = engine
-    logger.info(f"Engine created for table {table_id} ({small_blind}/{big_blind}, rake={rake}%)")
+    logger.info(f"Engine created for table {table_id} ({small_blind}/{big_blind}, rake={rake}%, type={poker_type})")
     # Start NPC monitor for this table
     from app.npc_manager import start_npc_monitor
     start_npc_monitor(table_id, small_blind, big_blind)
@@ -119,10 +121,11 @@ def remove_engine(table_id: int):
 
 async def player_joined(table_id: int, user_id: int, seat: int, stack: float,
                          small_blind: float = 1.0, big_blind: float = 2.0,
-                         rake_override: float | None = None, is_npc: bool = False):
+                         rake_override: float | None = None, is_npc: bool = False,
+                         poker_type: str = "HOLDEM"):
     """Called from tables API when a player joins. Wires them into the engine."""
     engine = get_or_create_engine(table_id, small_blind, big_blind,
-                                   rake_override=rake_override)
+                                   rake_override=rake_override, poker_type=poker_type)
     engine.add_player(user_id, seat, stack)
     logger.info(f"Player {user_id} joined table {table_id} seat {seat} stack {stack}")
 
