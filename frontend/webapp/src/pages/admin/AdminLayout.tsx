@@ -13,6 +13,7 @@ const tabs = [
   { path: "/admin/shop",         label: "Магазин",    icon: "🛍" },
   { path: "/admin/players",      label: "Игроки",     icon: "👥" },
   { path: "/admin/syndicates",   label: "Картели",    icon: "⚔️" },
+  { path: "/admin/hand-history", label: "Раздачи",    icon: "🂠" },
   { path: "/admin/transactions", label: "Транзакции", icon: "💳" },
   { path: "/admin/withdrawals",  label: "Переводы",   icon: "💸" },
 ]

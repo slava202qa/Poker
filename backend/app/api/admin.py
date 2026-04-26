@@ -1028,6 +1028,51 @@ async def withdraw_contract_fees(
     return result
 
 
+# ── Hand History ──
+
+@router.get("/hand-history")
+async def admin_hand_history(
+    limit: int = 50,
+    table_id: int | None = None,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """Recent completed hands. Optionally filter by table_id."""
+    import json
+    from app.models.hand_history import HandHistory
+
+    q = select(HandHistory).order_by(HandHistory.finished_at.desc()).limit(min(limit, 200))
+    if table_id is not None:
+        q = q.where(HandHistory.table_id == table_id)
+
+    result = await db.execute(q)
+    hands = result.scalars().all()
+
+    out = []
+    for h in hands:
+        try:
+            winners = json.loads(h.winners_json or "[]")
+        except Exception:
+            winners = []
+        try:
+            community = json.loads(h.community_cards_json or "[]")
+        except Exception:
+            community = []
+        out.append({
+            "id": h.id,
+            "table_id": h.table_id,
+            "table_name": h.table_name,
+            "pot": float(h.pot),
+            "rake": float(h.rake),
+            "poker_type": h.poker_type,
+            "player_count": h.player_count,
+            "winners": winners,
+            "community_cards": community,
+            "finished_at": h.finished_at.isoformat() if h.finished_at else None,
+        })
+    return out
+
+
 # ── Financial Dashboard ──
 
 @router.get("/finance")

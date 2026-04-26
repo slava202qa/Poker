@@ -20,6 +20,7 @@ import AdminTournaments from './pages/admin/AdminTournaments'
 import AdminUsers from './pages/admin/AdminUsers'
 import AdminWithdrawals from './pages/admin/AdminWithdrawals'
 import AdminSyndicates from './pages/admin/AdminSyndicates'
+import AdminHandHistory from './pages/admin/AdminHandHistory'
 import Terms from './pages/Terms'
 import Info from './pages/Info'
 import Service from './pages/Service'
@@ -91,6 +92,7 @@ export default function App() {
           <Route path="transactions" element={<AdminTransactions />} />
           <Route path="players"      element={<AdminPlayers />} />
           <Route path="syndicates"   element={<AdminSyndicates />} />
+          <Route path="hand-history" element={<AdminHandHistory />} />
         </Route>
       </Routes>
       <BottomNav />

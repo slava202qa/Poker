@@ -106,6 +106,7 @@ async def _on_hand_end(table_id: int, rake_amount: float, winners: list[dict]):
     if rake_amount > 0:
         await _record_rake(table_id, rake_amount)
     await _update_player_stats(table_id, winners)
+    await _record_hand_history(table_id, rake_amount, winners)
     _schedule_next_hand(table_id)
 
 
@@ -338,6 +339,45 @@ async def _record_rake(table_id: int, rake_amount: float):
             logger.info(f"Rake recorded: {rake_amount:.4f} from table {table_id}")
     except Exception as e:
         logger.error(f"Failed to record rake for table {table_id}: {e}")
+
+
+async def _record_hand_history(table_id: int, rake_amount: float, winners: list[dict]):
+    """Persist a completed hand to hand_history for admin review."""
+    import json
+    from app.models.hand_history import HandHistory
+    from app.models.table import PokerTable
+
+    engine = _engines.get(table_id)
+    try:
+        async with async_session() as session:
+            tbl = await session.get(PokerTable, table_id)
+            table_name = tbl.name if tbl else None
+            poker_type = engine.poker_type if engine else "HOLDEM"
+            player_count = len(engine.players) if engine else 0
+
+            # Total pot = sum of winner amounts + rake
+            pot = sum(float(w.get("amount", 0)) for w in winners) + rake_amount
+
+            # Community cards as display strings e.g. ["A♥", "K♦", ...]
+            community = []
+            if engine:
+                for c in engine.community_cards:
+                    community.append(c.to_dict().get("display", str(c)))
+
+            record = HandHistory(
+                table_id=table_id,
+                table_name=table_name,
+                pot=pot,
+                rake=rake_amount,
+                winners_json=json.dumps(winners),
+                community_cards_json=json.dumps(community),
+                poker_type=poker_type,
+                player_count=player_count,
+            )
+            session.add(record)
+            await session.commit()
+    except Exception as e:
+        logger.error(f"Failed to record hand history for table {table_id}: {e}")
 
 
 async def _update_player_stats(table_id: int, winners: list[dict]):
