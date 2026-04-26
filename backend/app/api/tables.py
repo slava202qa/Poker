@@ -91,7 +91,7 @@ async def list_tables(
     q = select(PokerTable).order_by(PokerTable.id)
     if currency:
         try:
-            cur = CurrencyType(currency)
+            cur = CurrencyType(currency.upper())
         except ValueError:
             raise HTTPException(status_code=400, detail="Invalid currency, use 'chip' or 'fun'")
         q = q.where(PokerTable.currency == cur)

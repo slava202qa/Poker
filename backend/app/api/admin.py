@@ -789,16 +789,18 @@ async def admin_create_shop_item(
 @router.put("/shop/items/{item_id}")
 async def admin_update_shop_item(
     item_id: int,
-    name: str = Form(None),
-    price: float = Form(None),
-    description: str = Form(None),
-    icon: str = Form(None),
-    is_active: bool = Form(None),
-    rarity: str = Form(None),
-    item_type: str = Form(None),
-    vip_days: int = Form(None),
-    unlock_type: str = Form(None),
-    unlock_ref: str = Form(None),
+    # All fields come as strings from FormData — parse manually to avoid
+    # FastAPI's inability to coerce Form(None) for int/float/bool types
+    name: str | None = Form(None),
+    price: str | None = Form(None),
+    description: str | None = Form(None),
+    icon: str | None = Form(None),
+    is_active: str | None = Form(None),
+    rarity: str | None = Form(None),
+    item_type: str | None = Form(None),
+    vip_days: str | None = Form(None),
+    unlock_type: str | None = Form(None),
+    unlock_ref: str | None = Form(None),
     image: UploadFile | None = File(None),
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(require_admin),
@@ -809,13 +811,18 @@ async def admin_update_shop_item(
         raise HTTPException(status_code=404, detail="Item not found")
 
     if name is not None: item.name = name
-    if price is not None: item.price = price
-    if description is not None: item.description = description
-    if icon is not None: item.icon = icon
-    if is_active is not None: item.is_active = is_active
+    if price is not None:
+        try: item.price = float(price)
+        except ValueError: pass
+    if description is not None: item.description = description or None
+    if icon is not None: item.icon = icon or None
+    if is_active is not None:
+        item.is_active = is_active.lower() not in ("false", "0", "")
     if rarity is not None: item.rarity = rarity.upper()
     if item_type is not None: item.item_type = item_type.upper()
-    if vip_days is not None: item.vip_days = vip_days
+    if vip_days is not None:
+        try: item.vip_days = int(vip_days)
+        except ValueError: pass
     if unlock_type is not None: item.unlock_type = unlock_type
     if unlock_ref is not None: item.unlock_ref = unlock_ref or None
 
@@ -976,7 +983,7 @@ async def get_referral_settings(
     from app.models.referral import Referral
     from sqlalchemy import func as sqlfunc
     res = await db.execute(
-        select(sqlfunc.count(), sqlfunc.sum(Referral.bonus_paid))
+        select(sqlfunc.count(), sqlfunc.sum(Referral.referrer_bonus))
     )
     row = res.one()
     return ReferralSettingsOut(
