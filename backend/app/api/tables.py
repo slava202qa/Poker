@@ -242,7 +242,12 @@ async def join_table(
     cur = table.currency
     current_bal = _get_balance_for_currency(balance, cur)
 
-    if current_bal < body.buy_in:
+    # Admin unlimited balance: skip check and auto-top-up
+    if getattr(user, 'is_unlimited_balance', False):
+        if current_bal < body.buy_in:
+            _set_balance_for_currency(balance, cur, body.buy_in * 10)
+            current_bal = body.buy_in * 10
+    elif current_bal < body.buy_in:
         raise HTTPException(status_code=400, detail="Insufficient balance")
 
     _set_balance_for_currency(balance, cur, current_bal - body.buy_in)

@@ -25,10 +25,12 @@ class ShopItemOut(BaseModel):
     rarity: str
     price: float
     icon: str | None
+    image_url: str | None = None  # uploaded asset URL
     vip_days: int
     owned: bool = False
     equipped: bool = False
     expires_at: str | None = None
+    unlock_type: str = "purchase"
 
     class Config:
         from_attributes = True
@@ -85,10 +87,12 @@ async def list_items(
             rarity=(item.rarity.value if hasattr(item.rarity,"value") else str(item.rarity)).lower(),
             price=float(item.price),
             icon=item.icon,
+            image_url=getattr(item, 'image_url', None),
             vip_days=item.vip_days,
             owned=owned,
             equipped=inv_row.is_equipped if inv_row else False,
             expires_at=inv_row.expires_at.isoformat() if (inv_row and inv_row.expires_at) else None,
+            unlock_type=getattr(item, 'unlock_type', 'purchase') or 'purchase',
         ))
     return out
 
@@ -231,9 +235,37 @@ async def get_inventory(
             rarity=(item.rarity.value if hasattr(item.rarity,"value") else str(item.rarity)).lower(),
             price=float(item.price),
             icon=item.icon,
+            image_url=getattr(item, 'image_url', None),
             vip_days=item.vip_days,
             owned=owned,
             equipped=inv_row.is_equipped,
             expires_at=inv_row.expires_at.isoformat() if inv_row.expires_at else None,
+            unlock_type=getattr(item, 'unlock_type', 'purchase') or 'purchase',
         ))
     return out
+
+
+@router.get("/equipped")
+async def get_equipped(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Return currently equipped items per type: {card_skin, avatar_frame, emote}."""
+    result = await db.execute(
+        select(UserInventory, ShopItem)
+        .join(ShopItem, UserInventory.item_id == ShopItem.id)
+        .where(UserInventory.user_id == user.id, UserInventory.is_equipped == True)
+    )
+    equipped: dict[str, dict] = {}
+    now = datetime.datetime.now(datetime.timezone.utc)
+    for inv_row, item in result.all():
+        if inv_row.expires_at and inv_row.expires_at < now:
+            continue
+        itype = (item.item_type.value if hasattr(item.item_type, 'value') else str(item.item_type)).lower()
+        equipped[itype] = {
+            "item_key": item.item_key,
+            "name": item.name,
+            "image_url": getattr(item, 'image_url', None),
+            "icon": item.icon,
+        }
+    return equipped

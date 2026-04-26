@@ -244,6 +244,23 @@ async def list_users(
     return out
 
 
+@router.post("/users/{user_id}/unlimited-balance")
+async def set_unlimited_balance(
+    user_id: int,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """Toggle is_unlimited_balance for a user (admin testing mode)."""
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    current = getattr(user, 'is_unlimited_balance', False)
+    user.is_unlimited_balance = not current
+    await db.flush()
+    return {"user_id": user_id, "is_unlimited_balance": user.is_unlimited_balance}
+
+
 @router.post("/users/{user_id}/ban")
 async def ban_user(
     user_id: int,
@@ -302,7 +319,7 @@ async def user_transactions(
     txs = result.scalars().all()
     return [
         {
-            "id": t.id, "type": t.tx_type.value, "amount": float(t.amount),
+            "id": t.id, "type": t.tx_type.value if hasattr(t.tx_type, 'value') else str(t.tx_type), "amount": float(t.amount),
             "balance_after": float(t.balance_after), "reference": t.reference,
             "ton_tx_hash": t.ton_tx_hash, "created_at": t.created_at.isoformat(),
         }
@@ -883,9 +900,12 @@ async def admin_transactions(
         q = q.where(Transaction.tx_type == tx_type)
     q = q.order_by(Transaction.created_at.desc()).limit(limit).offset(offset)
     rows = (await db.execute(q)).all()
+    def _tx_type(v) -> str:
+        return v.value if hasattr(v, 'value') else str(v)
+
     return [AdminTxOut(
         id=tx.id, user_id=u.id, username=u.username, first_name=u.first_name,
-        tx_type=tx.tx_type.value, amount=float(tx.amount),
+        tx_type=_tx_type(tx.tx_type), amount=float(tx.amount),
         balance_after=float(tx.balance_after), reference=tx.reference,
         ton_tx_hash=tx.ton_tx_hash, created_at=tx.created_at.isoformat(),
     ) for tx, u in rows]

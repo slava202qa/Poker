@@ -24,6 +24,10 @@ class ProfileResponse(BaseModel):
     telegram_id: int
     username: str | None
     first_name: str
+    avatar_url: str | None
+    bio: str | None
+    vip_status: str
+    vip_expires_at: str | None
     ton_wallet: str | None
     balance: float
     fun_balance: float
@@ -86,6 +90,10 @@ async def get_profile(
         telegram_id=user.telegram_id,
         username=user.username,
         first_name=user.first_name,
+        avatar_url=user.avatar_url,
+        bio=user.bio,
+        vip_status=getattr(user, 'vip_status', 'none') or 'none',
+        vip_expires_at=user.vip_expires_at.isoformat() if getattr(user, 'vip_expires_at', None) else None,
         ton_wallet=user.ton_wallet,
         balance=float(user.balance.amount) if user.balance else 0,
         fun_balance=float(user.balance.fun_amount) if user.balance else 0,

@@ -15,6 +15,7 @@ class User(Base):
     bio: Mapped[str | None] = mapped_column(String(256), nullable=True)
     ton_wallet: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
     is_banned: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_unlimited_balance: Mapped[bool] = mapped_column(Boolean, default=False)  # admin testing flag
     # VIP
     vip_status: Mapped[str] = mapped_column(String(16), default="none")  # none/silver/gold/platinum
     vip_expires_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

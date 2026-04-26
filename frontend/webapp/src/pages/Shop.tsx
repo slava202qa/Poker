@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore'
 import { useApi } from '../hooks/useApi'
 
-type Tab = 'rewards' | 'vip' | 'skins'
+type Tab = 'rewards' | 'vip' | 'skins' | 'emotes'
 
 interface ShopItem {
   id: number
@@ -15,14 +15,17 @@ interface ShopItem {
   rarity: string
   price: number
   icon: string | null
+  image_url: string | null
   owned: boolean
   equipped: boolean
+  unlock_type: string
 }
 
 const TABS: { key: Tab; label: string; icon: string }[] = [
   { key: 'rewards', label: 'Клубные Награды', icon: '🏆' },
   { key: 'vip',     label: 'VIP',             icon: '👑' },
   { key: 'skins',   label: 'Скины',           icon: '🎨' },
+  { key: 'emotes',  label: 'Эмоции',          icon: '😄' },
 ]
 
 const RARITY_STYLE: Record<string, { border: string; label: string; color: string }> = {
@@ -97,7 +100,8 @@ export default function Shop() {
       <AnimatePresence mode="wait">
         {tab === 'rewards' && <ClubRewardsTab key="rewards" onService={() => navigate('/service')} />}
         {tab === 'vip'     && <VipTab key="vip" items={items.filter(i => i.item_type === 'vip')} onBuy={async (item) => { try { await post('/shop/buy', { item_key: item.item_key }); showToast(`${item.name} активирован!`, true); const d = await get<ShopItem[]>('/shop/items'); setItems(d) } catch (e: any) { showToast(e?.message || 'Недостаточно RR', false) } }} />}
-        {tab === 'skins'   && <ItemsTab key="skins" items={items.filter(i => i.item_type === 'card_skin')} onBuy={async (item) => { try { await post('/shop/buy', { item_key: item.item_key }); showToast(`${item.name} куплен!`, true); const d = await get<ShopItem[]>('/shop/items'); setItems(d) } catch { showToast('Недостаточно RR', false) } }} onEquip={async (item) => { try { await post('/shop/equip', { item_key: item.item_key }); const d = await get<ShopItem[]>('/shop/items'); setItems(d) } catch {} }} />}
+        {tab === 'skins'   && <ItemsTab key="skins"  items={items.filter(i => i.item_type === 'card_skin')} onBuy={async (item) => { try { await post('/shop/buy', { item_key: item.item_key }); showToast(`${item.name} куплен!`, true); const d = await get<ShopItem[]>('/shop/items'); setItems(d) } catch { showToast('Недостаточно RR', false) } }} onEquip={async (item) => { try { await post('/shop/equip', { item_key: item.item_key }); const d = await get<ShopItem[]>('/shop/items'); setItems(d) } catch {} }} />}
+        {tab === 'emotes'  && <ItemsTab key="emotes" items={items.filter(i => i.item_type === 'emote')}     onBuy={async (item) => { try { await post('/shop/buy', { item_key: item.item_key }); showToast(`${item.name} куплен!`, true); const d = await get<ShopItem[]>('/shop/items'); setItems(d) } catch { showToast('Недостаточно RR', false) } }} onEquip={async (item) => { try { await post('/shop/equip', { item_key: item.item_key }); const d = await get<ShopItem[]>('/shop/items'); setItems(d) } catch {} }} />}
       </AnimatePresence>
     </div>
   )
@@ -179,15 +183,25 @@ function ItemsTab({ items, onBuy, onEquip }: {
     <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-3">
       {items.map((item, i) => {
         const r = RARITY_STYLE[item.rarity] ?? RARITY_STYLE.common
+        const isEmote = item.item_type === 'emote'
         return (
           <motion.div key={item.item_key}
             initial={{ x: -12, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: i * 0.04 }}
             className="rounded-2xl p-4"
             style={{ background: '#1c1c1c', border: `1px solid ${r.border}` }}>
             <div className="flex items-start gap-3">
-              <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl flex-shrink-0"
+              {/* Asset preview: image if uploaded, else icon */}
+              <div className="w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden"
                 style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${r.border}` }}>
-                {item.icon ?? '🎁'}
+                {item.image_url ? (
+                  <img
+                    src={item.image_url}
+                    alt={item.name}
+                    className={`w-full h-full object-cover${isEmote ? ' animate-bounce' : ''}`}
+                  />
+                ) : (
+                  <span className="text-2xl">{item.icon ?? '🎁'}</span>
+                )}
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-0.5">

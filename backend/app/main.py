@@ -117,10 +117,12 @@ async def websocket_table(
     cfg = get_settings()
 
     # Validate initData before accepting the connection
+    # validate_init_data returns (user_dict, extra) tuple
     try:
-        tg_user = validate_init_data(init_data, cfg.bot_token)
+        tg_user, _extra = validate_init_data(init_data, cfg.bot_token)
         telegram_id = tg_user["id"]
-    except Exception:
+    except Exception as e:
+        logger.warning(f"WS auth failed: {e}")
         await websocket.close(code=4001, reason="Unauthorized")
         return
 
