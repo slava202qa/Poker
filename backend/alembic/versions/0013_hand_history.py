@@ -14,6 +14,7 @@ depends_on = None
 
 
 def upgrade():
+    # Use IF NOT EXISTS so re-running is safe (e.g. after manual stamp)
     op.execute("""
         CREATE TABLE IF NOT EXISTS hand_history (
             id SERIAL PRIMARY KEY,
