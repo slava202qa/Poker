@@ -39,6 +39,7 @@ export default function Shop() {
   const [tab, setTab] = useState<Tab>('rewards')
   const user = useStore((s) => s.user)
   const setUser = useStore((s) => s.setUser)
+  const setEquippedCardSkin = useStore((s) => s.setEquippedCardSkin)
   const navigate = useNavigate()
   const { get, post } = useApi()
 
@@ -100,7 +101,7 @@ export default function Shop() {
       <AnimatePresence mode="wait">
         {tab === 'rewards' && <ClubRewardsTab key="rewards" onService={() => navigate('/service')} />}
         {tab === 'vip'     && <VipTab key="vip" items={items.filter(i => i.item_type === 'vip')} onBuy={async (item) => { try { await post('/shop/buy', { item_key: item.item_key }); showToast(`${item.name} активирован!`, true); const d = await get<ShopItem[]>('/shop/items'); setItems(d) } catch (e: any) { showToast(e?.message || 'Недостаточно RR', false) } }} />}
-        {tab === 'skins'   && <ItemsTab key="skins"  items={items.filter(i => i.item_type === 'card_skin')} onBuy={async (item) => { try { await post('/shop/buy', { item_key: item.item_key }); showToast(`${item.name} куплен!`, true); const d = await get<ShopItem[]>('/shop/items'); setItems(d) } catch { showToast('Недостаточно RR', false) } }} onEquip={async (item) => { try { await post('/shop/equip', { item_key: item.item_key }); const d = await get<ShopItem[]>('/shop/items'); setItems(d) } catch {} }} />}
+        {tab === 'skins'   && <ItemsTab key="skins"  items={items.filter(i => i.item_type === 'card_skin')} onBuy={async (item) => { try { await post('/shop/buy', { item_key: item.item_key }); showToast(`${item.name} куплен!`, true); const d = await get<ShopItem[]>('/shop/items'); setItems(d) } catch { showToast('Недостаточно RR', false) } }} onEquip={async (item) => { try { await post('/shop/equip', { item_key: item.item_key }); const d = await get<ShopItem[]>('/shop/items'); setItems(d); if (item.image_url) setEquippedCardSkin(item.image_url) } catch {} }} />}
         {tab === 'emotes'  && <ItemsTab key="emotes" items={items.filter(i => i.item_type === 'emote')}     onBuy={async (item) => { try { await post('/shop/buy', { item_key: item.item_key }); showToast(`${item.name} куплен!`, true); const d = await get<ShopItem[]>('/shop/items'); setItems(d) } catch { showToast('Недостаточно RR', false) } }} onEquip={async (item) => { try { await post('/shop/equip', { item_key: item.item_key }); const d = await get<ShopItem[]>('/shop/items'); setItems(d) } catch {} }} />}
       </AnimatePresence>
     </div>

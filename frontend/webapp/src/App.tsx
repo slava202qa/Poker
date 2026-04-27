@@ -34,13 +34,23 @@ export default function App() {
   const api = useApi()
   const setUser = useStore((s) => s.setUser)
   const setLoading = useStore((s) => s.setLoading)
+  const setEquippedCardSkin = useStore((s) => s.setEquippedCardSkin)
 
   useEffect(() => {
     // Authenticate with backend
     async function init() {
       try {
-        const userData = await api.post<any>('/auth/login')
+        await api.post<any>('/auth/login')
+        // Fetch full profile (includes avatar_url, bio, vip_status)
+        const userData = await api.get<any>('/profile/me')
         setUser(userData)
+        // Load equipped card skin
+        try {
+          const equipped = await api.get<Record<string, any>>('/shop/equipped')
+          if (equipped?.card_skin?.image_url) {
+            setEquippedCardSkin(equipped.card_skin.image_url)
+          }
+        } catch {}
       } catch {
         // Offline / dev mode — set demo user
         if (tgUser) {

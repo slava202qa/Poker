@@ -221,6 +221,19 @@ async def join_table(
     if body.buy_in < float(table.min_buy_in) or body.buy_in > float(table.max_buy_in):
         raise HTTPException(status_code=400, detail="Buy-in out of range")
 
+    # If engine doesn't exist (server restarted), stale table_players rows
+    # block re-entry. Clear them so players can rejoin cleanly.
+    from app.game_manager import get_engine
+    engine = get_engine(table_id)
+    if engine is None:
+        stale = await db.execute(select(TablePlayer).where(TablePlayer.table_id == table_id))
+        stale_rows = stale.scalars().all()
+        if stale_rows:
+            for row in stale_rows:
+                await db.delete(row)
+            table.current_players = 0
+            await db.flush()
+
     existing = await db.execute(
         select(TablePlayer).where(
             TablePlayer.table_id == table_id, TablePlayer.seat == body.seat

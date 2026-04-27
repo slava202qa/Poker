@@ -64,13 +64,18 @@ export default function TableRoom() {
   const prevPotRef = useRef<number>(0)
   const prevHandRef = useRef<boolean>(false)
 
-  // Load table info and show join modal if not already seated
+  const [takenSeats, setTakenSeats] = useState<number[]>([])
+
+  // Load table info + taken seats, show join modal if not already seated
   useEffect(() => {
     if (!tableId) return
-    api.get<any>(`/tables/${tableId}`).then(t => {
+    Promise.all([
+      api.get<any>(`/tables/${tableId}`),
+      api.get<any[]>(`/tables/${tableId}/seats`),
+    ]).then(([t, seats]) => {
       setTableInfo(t)
-      // Check if already in game state as a player
-      const alreadySeated = gameState?.players?.some((p: any) => p.user_id === storeUser?.id)
+      setTakenSeats(seats.map((s: any) => s.seat))
+      const alreadySeated = seats.some((s: any) => s.user_id === storeUser?.id)
       if (!alreadySeated && !hasJoined) {
         setJoinBuyIn(t.min_buy_in ?? 200)
         setShowJoin(true)
@@ -442,7 +447,7 @@ export default function TableRoom() {
                 <label className="text-[10px] text-gray-500 uppercase tracking-wider mb-2 block">Место</label>
                 <div className="grid grid-cols-5 gap-2">
                   {[1,2,3,4,5,6,7,8,9].slice(0, tableInfo?.max_players ?? 6).map(s => {
-                    const taken = gameState?.players?.some((p: any) => p.seat === s)
+                    const taken = takenSeats.includes(s) || gameState?.players?.some((p: any) => p.seat === s)
                     return (
                       <button key={s} disabled={taken} onClick={() => setJoinSeat(s)}
                         className="py-2 rounded-xl text-sm font-bold transition-all disabled:opacity-30"

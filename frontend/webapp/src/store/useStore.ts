@@ -38,6 +38,9 @@ interface AppState {
   setLoading: (loading: boolean) => void
   hideNav: boolean
   setHideNav: (v: boolean) => void
+  // Equipped card skin: image_url or null (default blue back)
+  equippedCardSkin: string | null
+  setEquippedCardSkin: (url: string | null) => void
 }
 
 export const useStore = create<AppState>((set) => ({
@@ -49,4 +52,6 @@ export const useStore = create<AppState>((set) => ({
   setLoading: (isLoading) => set({ isLoading }),
   hideNav: false,
   setHideNav: (hideNav) => set({ hideNav }),
+  equippedCardSkin: null,
+  setEquippedCardSkin: (equippedCardSkin) => set({ equippedCardSkin }),
 }))

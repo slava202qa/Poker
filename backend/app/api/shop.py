@@ -129,7 +129,14 @@ async def buy_item(
             select(Balance).where(Balance.user_id == user.id)
         )
         balance = balance_result.scalar_one_or_none()
-        if not balance or float(balance.amount) < float(item.price):
+        # Admin unlimited balance: auto-top-up instead of rejecting
+        if getattr(user, 'is_unlimited_balance', False):
+            if not balance:
+                balance = Balance(user_id=user.id, amount=float(item.price) * 10, fun_amount=0)
+                db.add(balance)
+            elif float(balance.amount) < float(item.price):
+                balance.amount = float(item.price) * 10
+        elif not balance or float(balance.amount) < float(item.price):
             raise HTTPException(status_code=402, detail="Insufficient balance")
 
         balance.amount = float(balance.amount) - float(item.price)

@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion'
+import { useStore } from '../store/useStore'
 
 interface Props {
   rank?: number
@@ -28,6 +29,7 @@ export function PlayingCard({
   dealDelay = 0, dealFrom = 'deck',
 }: Props) {
   const w = small ? 'w-10 h-14' : 'w-14 h-20'
+  const equippedCardSkin = useStore((s) => s.equippedCardSkin)
 
   // Deal-from-deck animation: card flies in from center-top
   const dealInitial = dealFrom === 'deck'
@@ -41,21 +43,24 @@ export function PlayingCard({
       <motion.div
         initial={dealInitial}
         animate={{ ...dealAnimate, rotateY: 0 }}
-        transition={{
-          duration: 0.5,
-          delay: dealDelay,
-          type: 'spring',
-          stiffness: 200,
-          damping: 20,
+        transition={{ duration: 0.5, delay: dealDelay, type: 'spring', stiffness: 200, damping: 20 }}
+        className={`${w} rounded-lg border shadow-card overflow-hidden flex items-center justify-center`}
+        style={{
+          perspective: 800,
+          ...(equippedCardSkin
+            ? { borderColor: 'rgba(212,168,67,0.4)', background: '#111' }
+            : { background: 'linear-gradient(135deg,#1e3a8a,#1e1b4b)', borderColor: 'rgba(96,165,250,0.5)' }),
         }}
-        className={`${w} rounded-lg bg-gradient-to-br from-blue-800 to-blue-950 border border-blue-600/50 shadow-card flex items-center justify-center`}
-        style={{ perspective: 800 }}
       >
-        <div className="w-6 h-8 rounded border border-blue-400/30 bg-blue-700/50">
-          <div className="w-full h-full flex items-center justify-center">
-            <div className="w-3 h-3 rounded-full border border-blue-400/20" />
+        {equippedCardSkin ? (
+          <img src={equippedCardSkin} alt="card back" className="w-full h-full object-cover" />
+        ) : (
+          <div className="w-6 h-8 rounded border border-blue-400/30 bg-blue-700/50">
+            <div className="w-full h-full flex items-center justify-center">
+              <div className="w-3 h-3 rounded-full border border-blue-400/20" />
+            </div>
           </div>
-        </div>
+        )}
       </motion.div>
     )
   }

@@ -52,6 +52,8 @@ services:
         condition: service_completed_successfully
     ports:
       - "8000:8000"
+    volumes:
+      - uploads:/app/uploads
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8000/health | grep -q ok || exit 1"]
       interval: 10s
@@ -97,9 +99,11 @@ services:
     volumes:
       - certs:/etc/letsencrypt:ro
       - certbot-www:/var/www/certbot
+      - uploads:/app/uploads:ro
     restart: unless-stopped
 
 volumes:
   pgdata:
   certs:
   certbot-www:
+  uploads:
